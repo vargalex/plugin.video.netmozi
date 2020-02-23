@@ -1,0 +1,5 @@
+﻿[B]1.0.1[/B]
+- Átállás urlresolver-re
+
+[B]1.0.0[/B]
+- Első verzió
