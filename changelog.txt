@@ -1,4 +1,7 @@
-﻿[B]1.0.2[/B]
+﻿[B]1.0.3[/B]
+- BugFix
+
+[B]1.0.2[/B]
 - Forrás változás követése
 - Rendezési lehetőségek parse-olása az oldalról
 
