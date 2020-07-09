@@ -4,7 +4,6 @@
         <setting label="Felhasználónév:" type="text" id="username" default=""/>
         <setting label="Jelszó:" type="text" id="password" option="hidden" default=""/>
 		<setting type="text" id="logintimestamp" visible="false" default="0" />
-		<setting type="bool" id="loggedin" visible="false" default="false" />
 		<setting type="text" id="logincookie" visible="false" default="" />
 	</category>
 </settings>

@@ -1,4 +1,8 @@
-﻿[B]1.0.1[/B]
+﻿[B]1.0.2[/B]
+- Forrás változás követése
+- Rendezési lehetőségek parse-olása az oldalról
+
+[B]1.0.1[/B]
 - Átállás urlresolver-re
 
 [B]1.0.0[/B]

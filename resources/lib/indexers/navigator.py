@@ -41,9 +41,15 @@ class navigator:
         self.endDirectory()
 
     def getOrderTypes(self, tipus):
-        tipusok = {'1': 'Legfrissebb linkek', '2': 'legújabb feltöltések', '3': 'Legnézettebbek', '4': 'Legfrissebb hozzászólás', '5': 'Legtöbb hozzászólás'}
-        for lTipus in sorted(tipusok):
-            self.addDirectoryItem(tipusok[lTipus], 'movies&page=1&type=%s&order=%s&search=' % (tipus, lTipus), '', 'DefaultFolder.png')
+        url_content = client.request(base_url)
+        btnGroup = client.parseDOM(url_content, 'div', attrs={'class': 'btn-group'})[0]
+        labels = client.parseDOM(btnGroup, 'label')
+        for label in labels:
+            name = client.parseDOM(label, 'input', attrs={'class': 'orderRadioInput'})
+            if len(name) > 0:
+                name = name[0].strip()
+                order = client.parseDOM(label, 'input', attrs={'class': 'orderRadioInput'}, ret='value')
+                self.addDirectoryItem(name, 'movies&page=1&type=%s&order=%s&search=' % (tipus, order), '', 'DefaultFolder.png')
         self.endDirectory()
 
     def doSearch(self):
@@ -65,28 +71,32 @@ class navigator:
             search = ''
         url_content = client.request('%s?page=%s&type=%s&order=%s&search=%s' % (base_url, page, tipus, order, search))
         movies = client.parseDOM(url_content, 'div', attrs={'class': 'col-sm-4 col_main'})
-        for movie in movies:
-            tempTitle = client.parseDOM(movie, 'div', attrs={'class': 'col_name'})[0]
-            title = client.replaceHTMLCodes(tempTitle).encode('utf-8').replace('<small>(sorozat)</small>', '')
-            isSorozat = "(sorozat)" in tempTitle
-            sorozatLabel = ''
-            if isSorozat and tipus != "2":
-                sorozatLabel = ' [COLOR yellow][I]sorozat[/I][/COLOR]'
-            url = client.parseDOM(movie, 'a', attrs={'class': 'col_a'}, ret='href')[0]
-            thumbDiv = client.parseDOM(movie, 'div', attrs={'class': 'col-sm-6'})[0]
-            thumb = 'https:'+client.parseDOM(thumbDiv, 'img', ret='src')[0]
-            infoDiv = client.parseDOM(movie, 'div', attrs={'class': 'col-sm-6'})[1]
-            infoRows = client.parseDOM(infoDiv, 'div', attrs={'class': 'row'})
-            year = re.sub('<.*>', '', client.replaceHTMLCodes(infoRows[0]).encode('utf-8')).strip()
-            duration = int(re.sub('<.*>', '', client.replaceHTMLCodes(infoRows[1]).encode('utf-8')).strip().replace(' perc',''))*60
-            linkcount = re.sub('<.*>', '', client.replaceHTMLCodes(infoRows[2]).encode('utf-8')).strip().replace('db', '')
-            action='series' if isSorozat else 'movie'
-            self.addDirectoryItem('%s (%s)%s | [COLOR limegreen]%s link[/COLOR]' %(title, year, sorozatLabel, linkcount), '%s&url=%s' % (action, url), thumb, 'DefaultMovies.png' if isSorozat else 'DefaultTVShows.png', meta={'title': title, 'duration': duration, 'fanart': thumb})
-        pager = client.parseDOM(url_content, 'select', attrs={'name': 'page'})[0]
-        options = client.parseDOM(pager, 'option', ret='value')
-        if (int(options[-1]) > int(page)):
-            self.addDirectoryItem(u'[I]K\u00F6vetkez\u0151 oldal  (%d/%s)>>[/I]' %(int(page)+1, options[-1]), 'movies&page=%d&type=%s&order=%s&search=%s' % (int(page)+1, tipus, order, search), '', 'DefaultFolder.png')
-        self.endDirectory(type="movies")
+        if len(movies)>0:
+            for movie in movies:
+                tempTitle = client.parseDOM(movie, 'div', attrs={'class': 'col_name'})[0]
+                title = client.replaceHTMLCodes(tempTitle).encode('utf-8').replace('<small>(sorozat)</small>', '')
+                isSorozat = "(sorozat)" in tempTitle
+                sorozatLabel = ''
+                if isSorozat and tipus != "2":
+                    sorozatLabel = ' [COLOR yellow][I]sorozat[/I][/COLOR]'
+                url = client.parseDOM(movie, 'a', attrs={'class': 'col_a'}, ret='href')[0]
+                thumbDiv = client.parseDOM(movie, 'div', attrs={'class': 'col-sm-6'})[0]
+                thumb = 'https:'+client.parseDOM(thumbDiv, 'img', ret='src')[0]
+                infoDiv = client.parseDOM(movie, 'div', attrs={'class': 'col-sm-6'})[1]
+                infoRows = client.parseDOM(infoDiv, 'div', attrs={'class': 'row'})
+                year = re.sub('<.*>', '', client.replaceHTMLCodes(infoRows[0]).encode('utf-8')).strip()
+                duration = int(re.sub('<.*>', '', client.replaceHTMLCodes(infoRows[1]).encode('utf-8')).strip().replace(' perc',''))*60
+                linkcount = re.sub('<.*>', '', client.replaceHTMLCodes(infoRows[2]).encode('utf-8')).strip().replace('db', '')
+                action='series' if isSorozat else 'movie'
+                self.addDirectoryItem('%s (%s)%s | [COLOR limegreen]%s link[/COLOR]' %(title, year, sorozatLabel, linkcount), '%s&url=%s' % (action, url), thumb, 'DefaultMovies.png' if isSorozat else 'DefaultTVShows.png', meta={'title': title, 'duration': duration, 'fanart': thumb})
+            pager = client.parseDOM(url_content, 'select', attrs={'name': 'page'})[0]
+            options = client.parseDOM(pager, 'option', ret='value')
+            if (int(options[-1]) > int(page)):
+                self.addDirectoryItem(u'[I]K\u00F6vetkez\u0151 oldal  (%d/%s)>>[/I]' %(int(page)+1, options[-1]), 'movies&page=%d&type=%s&order=%s&search=%s' % (int(page)+1, tipus, order, search), '', 'DefaultFolder.png')
+            self.endDirectory(type="movies")
+        else:
+            xbmcgui.Dialog().ok('NetMozi', 'Nem található forrás!')
+            xbmcplugin.setResolvedUrl(int(sys.argv[1]), False, xbmcgui.ListItem())
 
     def getSeries(self, url):
         self.Login()
@@ -126,48 +136,52 @@ class navigator:
     def getMovie(self, url):
         self.Login()
         url_content = client.request('%s%s' %(base_url, url), cookie=self.logincookie)
-        container = client.parseDOM(url_content, 'div', attrs={'class': 'container'})[0]
-        temp = client.parseDOM(container, 'h3')[0]
-        title = client.replaceHTMLCodes(client.parseDOM(temp, 'a')[0]).encode('utf-8').strip()
-        temp = client.parseDOM(container, 'div', attrs={'class': 'col-sm-4'})[0]
-        thumb = 'https:'+client.parseDOM(temp, 'img', ret='src')[0]
-        temp = client.parseDOM(container, 'div', attrs={'class': 'col-sm-8'})[0]
-        plot = self.getInfo(temp, 'Leírás')
-        duration = int(self.getInfo(temp, 'Játékidő:').replace(' perc', ''))*60
-        table = client.parseDOM(url_content, 'table', attrs={'class': 'table table-responsive'})
-        serieInfo = client.parseDOM(url_content, 'h4')
-        if serieInfo:
-            serieInfo=' - %s' % serieInfo[0].encode('utf-8')
-        else:
-            serieInfo=''
-        if table:
-            rows = client.parseDOM(table, 'tr')
-            sourceCnt = 0
-            for row in rows:
-                sourceCnt+=1
-                cols = client.parseDOM(row, 'td')
-                if 'hungary.gif' in cols[0]:
-                    nyelv = 'Szinkron'
-                elif 'usa.gif' in cols[0]:
-                    nyelv='Külfüldi'
-                elif 'uk-hu.png' in cols[0]:
-                    nyelv = 'Felirat'
-                else:
-                    nyelv = 'Ismeretlen'
-                valid = ''
-                if 'red_mark.png' in cols[1]:
-                    valid = '| [COLOR red]Érvénytelen[/COLOR]'
-                url=client.parseDOM(cols[3], 'a', attrs={'class': 'btn btn-outline-primary btn-sm'}, ret='href')[0].encode('utf-8')
-                quality=cols[4].encode('utf-8')
-                site=cols[5].encode('utf-8')
-                self.addDirectoryItem('%s | [B]%s[/B] | [COLOR limegreen]%s[/COLOR] | [COLOR blue]%s[/COLOR] %s' % (format(sourceCnt, '02'), site, nyelv, quality, valid), 'playmovie&url=%s' % url, thumb, 'DefaultMovies.png', isFolder=False, meta={'title': title + serieInfo, 'plot': plot, 'duration': duration, 'fanart': thumb})
-            self.endDirectory(type="movies")
-        else:
+        if "regeljbe.png" in url_content:
             xbmcgui.Dialog().ok('NetMozi', 'Lista lekérés sikertelen. A hozzáféréshez regisztráció szükséges.')
             xbmcplugin.setResolvedUrl(int(sys.argv[1]), False, xbmcgui.ListItem())
+        else:
+            movieURL = 'https:%s' % client.parseDOM(url_content, 'a', attrs={'class': 'details_links_btn'}, ret='href')[0]
+            container = client.parseDOM(url_content, 'div', attrs={'class': 'container'})[0]
+            temp = client.parseDOM(container, 'h3')[0]
+            title = client.replaceHTMLCodes(client.parseDOM(temp, 'a')[0]).encode('utf-8').strip()
+            temp = client.parseDOM(container, 'div', attrs={'class': 'col-sm-4'})[0]
+            thumb = 'https:'+client.parseDOM(temp, 'img', ret='src')[0]
+            temp = client.parseDOM(container, 'div', attrs={'class': 'col-sm-8'})[0]
+            plot = self.getInfo(temp, 'Leírás')
+            duration = int(self.getInfo(temp, 'Játékidő:').replace(' perc', ''))*60
+            serieInfo = client.parseDOM(url_content, 'h4')
+            if serieInfo:
+                serieInfo=' - %s' % serieInfo[0].encode('utf-8')
+            else:
+                serieInfo=''
+            url_content = client.request(movieURL)
+            table = client.parseDOM(url_content, 'table', attrs={'class': 'table table-responsive'})
+            if table:
+                rows = client.parseDOM(table, 'tr')
+                sourceCnt = 0
+                for row in rows:
+                    sourceCnt+=1
+                    cols = client.parseDOM(row, 'td')
+                    if 'hungary.gif' in cols[0]:
+                        nyelv = 'Szinkron'
+                    elif 'usa.gif' in cols[0]:
+                        nyelv='Külfüldi'
+                    elif 'uk-hu.png' in cols[0]:
+                        nyelv = 'Felirat'
+                    else:
+                        nyelv = 'Ismeretlen'
+                    valid = ''
+                    if 'red_mark.png' in cols[1]:
+                        valid = '| [COLOR red]Érvénytelen[/COLOR]'
+                    mURL = urlparse.urlsplit(movieURL)
+                    url=urlparse.urljoin('%s://%s' %(mURL.scheme, mURL.netloc),client.parseDOM(cols[3], 'a', attrs={'class': 'btn btn-outline-primary btn-sm'}, ret='href')[0].encode('utf-8'))
+                    quality=cols[4].encode('utf-8')
+                    site=cols[5].encode('utf-8')
+                    self.addDirectoryItem('%s | [B]%s[/B] | [COLOR limegreen]%s[/COLOR] | [COLOR blue]%s[/COLOR] %s' % (format(sourceCnt, '02'), site, nyelv, quality, valid), 'playmovie&url=%s' % url, thumb, 'DefaultMovies.png', isFolder=False, meta={'title': title + serieInfo, 'plot': plot, 'duration': duration, 'fanart': thumb})
+        self.endDirectory(type="movies")
 
     def playmovie(self, url):
-        url_content = client.request('%s%s' %(base_url, url), cookie=self.logincookie)
+        url_content = client.request(url, cookie=self.logincookie)
         matches = re.search(r'^(.*)var link(.*)= "(.*)";(.*)$', url_content, re.MULTILINE)
         if matches:
             url = matches.group(3).decode('base64')
@@ -180,50 +194,32 @@ class navigator:
                 xbmcgui.Dialog().notification(urlparse.urlparse(url).hostname, e.message)
                 return
             if direct_url:
-            #hmf = urlresolver.HostedMediaFile(url=url, include_disabled=True, include_universal=True)
-#
-            #if hmf.valid_url() == True:
-            #    domain = hmf._domain
-            #    direct_url = hmf.resolve()
-            #    direct_url=direct_url.encode('utf-8')
                 xbmc.log('NetMozi: playing URL: %s' % direct_url, xbmc.LOGNOTICE)
                 play_item = xbmcgui.ListItem(path=direct_url)
                 xbmcplugin.setResolvedUrl(syshandle, True, listitem=play_item)
 
     def Login(self):
         if (self.username and self.password) != '':
-            t1 = int(xbmcaddon.Addon().getSetting('logintimestamp'))
+            try:
+                t1 = int(xbmcaddon.Addon().getSetting('logintimestamp'))
+            except:
+                t1 = 0
             t2 = int(time.time())
             update = (abs(t2 - t1) / 3600) >= 24 or t1 == 0
-            if update == False:
+            if update == False and self.logincookie != "":
                 return
-
             login_url = '%s/login/do' % base_url
             login_cookies = client.request(login_url, post="username=%s&password=%s" % (self.username, self.password), output='cookie')
             if 'ca' in login_cookies:
-                xbmcaddon.Addon().setSetting('loggedin', 'true')
                 xbmcaddon.Addon().setSetting('logintimestamp', str(t2))
                 xbmcaddon.Addon().setSetting('logincookie', base64.b64encode(login_cookies))
                 self.logincookie=login_cookies
             else:
                 xbmcgui.Dialog().ok(u'NetMozi', u'Bejelentkez\u00E9si hiba!')
-                xbmcaddon.Addon().setSetting('loggedin', 'false')
                 xbmcaddon.Addon().setSetting('logintimestamp', '0')
                 xbmcaddon.Addon().setSetting('logincookie', '')
                 self.logincookie = ""
         return
-
-        #if 'errorMessage' in jsonparse:
-        #    xbmcgui.Dialog().ok(u'Bejelentkez\u00E9si hiba', jsonparse['errorMessage'])
-        #    xbmcaddon.Addon().setSetting('loggedin', 'false')
-        #    xbmcaddon.Addon().setSetting('s.timestamp', '0')
-        #    return
-#
-        #xbmcaddon.Addon().setSetting('userid', jsonparse['UID'])
-        #xbmcaddon.Addon().setSetting('signature', jsonparse['UIDSignature'])
-        #xbmcaddon.Addon().setSetting('s.timestamp', jsonparse['signatureTimestamp'])
-        #xbmcaddon.Addon().setSetting('loggedin', 'true')
-
 
     def addDirectoryItem(self, name, query, thumb, icon, context=None, queue=False, isAction=True, isFolder=True, Fanart=None, meta=None):
         url = '%s?action=%s' % (sysaddon, query) if isAction == True else query
