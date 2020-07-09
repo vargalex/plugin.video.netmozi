@@ -48,7 +48,7 @@ class navigator:
             name = client.parseDOM(label, 'input', attrs={'class': 'orderRadioInput'})
             if len(name) > 0:
                 name = name[0].strip()
-                order = client.parseDOM(label, 'input', attrs={'class': 'orderRadioInput'}, ret='value')
+                order = client.parseDOM(label, 'input', attrs={'class': 'orderRadioInput'}, ret='value')[0]
                 self.addDirectoryItem(name, 'movies&page=1&type=%s&order=%s&search=' % (tipus, order), '', 'DefaultFolder.png')
         self.endDirectory()
 
