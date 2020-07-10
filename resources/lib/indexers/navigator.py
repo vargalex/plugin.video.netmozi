@@ -19,7 +19,7 @@
 '''
 
 
-import os,sys,re,xbmc,xbmcgui,xbmcplugin,xbmcaddon,urllib,urlparse,base64,time
+import os,sys,re,xbmc,xbmcgui,xbmcplugin,xbmcaddon,urllib,urlparse,base64,time, locale
 import urlresolver
 from resources.lib.modules import client
 
@@ -30,14 +30,32 @@ base_url = 'aHR0cHM6Ly9uZXRtb3ppLmNvbS8='.decode('base64')
 
 class navigator:
     def __init__(self):
+        locale.setlocale(locale.LC_ALL, "")
         self.username = xbmcaddon.Addon().getSetting('username')
         self.password = xbmcaddon.Addon().getSetting('password')
         self.logincookie = xbmcaddon.Addon().getSetting('logincookie').decode('base64')
+        self.base_path = xbmc.translatePath(xbmcaddon.Addon().getAddonInfo('profile'))
+        self.searchFileName = os.path.join(self.base_path, "search.history")
 
     def root(self):
-        menuItems = {'base&type=1': 'Filmek', 'base&type=2': 'Sorozatok', 'keres': 'Keresés'}
+        menuItems = {'base&type=1': 'Filmek', 'base&type=2': 'Sorozatok', 'search': 'Keresés'}
         for menuItem in sorted(menuItems):
             self.addDirectoryItem(menuItems[menuItem], menuItem, '', 'DefaultFolder.png')
+        self.endDirectory()
+
+    def getSearches(self):
+        self.addDirectoryItem('Új keresés', 'newsearch', '', 'DefaultFolder.png')
+        try:
+            file = open(self.searchFileName, "r")
+            items = file.read().splitlines()
+            items.sort(cmp=locale.strcoll)
+            file.close()
+            for item in items:
+                self.addDirectoryItem(item, 'movies&page=1&type=&order=1&search=%s' % (urllib.quote_plus(item)), '', 'DefaultFolder.png')
+            if len(items) > 0:
+                self.addDirectoryItem('Keresési előzmények törlése', 'deletesearchhistory', '', 'DefaultFolder.png') 
+        except:
+            pass   
         self.endDirectory()
 
     def getOrderTypes(self, tipus):
@@ -52,10 +70,19 @@ class navigator:
                 self.addDirectoryItem(name, 'movies&page=1&type=%s&order=%s&search=' % (tipus, order), '', 'DefaultFolder.png')
         self.endDirectory()
 
+    def deleteSearchHistory(self):
+        if os.path.exists(self.searchFileName):
+            os.remove(self.searchFileName)
+
     def doSearch(self):
         search_text = self.getSearchText()
         if search_text != '':
-            self.getMovies('', 1, 1, urllib.quote_plus(search_text))
+            if not os.path.exists(self.base_path):
+                os.mkdir(self.base_path)
+            file = open(self.searchFileName, "a")
+            file.write("%s\n" % search_text)
+            file.close()
+            self.getMovies('', 1, 1, search_text)
 
     def getInfo(self, sm8, searchStr):
         result = "0"
@@ -69,7 +96,7 @@ class navigator:
     def getMovies(self, tipus, page, order, search):
         if search == None:
             search = ''
-        url_content = client.request('%s?page=%s&type=%s&order=%s&search=%s' % (base_url, page, tipus, order, search))
+        url_content = client.request('%s?page=%s&type=%s&order=%s&search=%s' % (base_url, page, tipus, order, urllib.quote_plus(search)))
         movies = client.parseDOM(url_content, 'div', attrs={'class': 'col-sm-4 col_main'})
         if len(movies)>0:
             for movie in movies:

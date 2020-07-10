@@ -20,6 +20,7 @@
 
 
 import urlparse,sys, xbmcgui
+from resources.lib.indexers import navigator
 
 params = dict(urlparse.parse_qsl(sys.argv[2].replace('?','')))
 
@@ -38,34 +39,32 @@ search = params.get('search')
 serie = params.get('serie')
 
 if action == None:
-    from resources.lib.indexers import navigator
     navigator.navigator().root()
 
 elif action == 'base':
-    from resources.lib.indexers import navigator
     navigator.navigator().getOrderTypes(tipus)
 
 
 elif action == 'movies':
-    from resources.lib.indexers import navigator
     navigator.navigator().getMovies(tipus, page, order, search)
 
 elif action == 'movie':
-    from resources.lib.indexers import navigator
     navigator.navigator().getMovie(url)
 
 elif action == 'playmovie':
-    from resources.lib.indexers import navigator
     navigator.navigator().playmovie(url)
 
-elif action == 'keres':
-    from resources.lib.indexers import navigator
-    navigator.navigator().doSearch()
+elif action == 'search':
+    navigator.navigator().getSearches()
 
 elif action == 'series':
-    from resources.lib.indexers import navigator
     navigator.navigator().getSeries(url)
 
 elif action == 'episodes':
-    from resources.lib.indexers import navigator
     navigator.navigator().getEpisodes(url, serie)
+
+elif action == 'newsearch':
+    navigator.navigator().doSearch()
+
+elif action == 'deletesearchhistory':
+    navigator.navigator().deleteSearchHistory()
