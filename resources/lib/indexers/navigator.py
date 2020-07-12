@@ -30,7 +30,10 @@ base_url = 'aHR0cHM6Ly9uZXRtb3ppLmNvbS8='.decode('base64')
 
 class navigator:
     def __init__(self):
-        locale.setlocale(locale.LC_ALL, "")
+        try:
+            locale.setlocale(locale.LC_ALL, "")
+        except:
+            pass
         self.username = xbmcaddon.Addon().getSetting('username')
         self.password = xbmcaddon.Addon().getSetting('password')
         self.logincookie = xbmcaddon.Addon().getSetting('logincookie').decode('base64')

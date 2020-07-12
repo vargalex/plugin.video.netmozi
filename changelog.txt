@@ -1,4 +1,7 @@
-﻿[B]1.0.4[/B]
+﻿[B]1.0.5[B]
+- Locale bugfix
+
+[B]1.0.4[/B]
 - keresési előzmények tárolása
 
 [B]1.0.3[/B]
