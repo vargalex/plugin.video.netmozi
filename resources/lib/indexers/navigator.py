@@ -211,22 +211,25 @@ class navigator:
         self.endDirectory(type="movies")
 
     def playmovie(self, url):
-        url_content = client.request(url, cookie=self.logincookie)
-        matches = re.search(r'^(.*)var link(.*)= "(.*)";(.*)$', url_content, re.MULTILINE)
-        if matches:
-            url = matches.group(3).decode('base64')
-            xbmc.log('NetMozi: resolving url: %s' % url, xbmc.LOGNOTICE)
-            try:
-                direct_url = urlresolver.resolve(url)
-                if direct_url:
-                    direct_url = direct_url.encode('utf-8')
-            except Exception as e:
-                xbmcgui.Dialog().notification(urlparse.urlparse(url).hostname, e.message)
-                return
+        xbmc.log('NetMozi: Try to play from URL: %s' % url, xbmc.LOGNOTICE)
+        final_url = client.request(url, cookie=self.logincookie, redirect=False, output="geturl")
+        xbmc.log('NetMozi: final URL: %s' % final_url, xbmc.LOGNOTICE)
+        try:
+            direct_url = urlresolver.resolve(final_url)
             if direct_url:
-                xbmc.log('NetMozi: playing URL: %s' % direct_url, xbmc.LOGNOTICE)
-                play_item = xbmcgui.ListItem(path=direct_url)
-                xbmcplugin.setResolvedUrl(syshandle, True, listitem=play_item)
+                xbmc.log('NetMozi: URLResolver resolved URL: %s' % direct_url, xbmc.LOGNOTICE)
+                direct_url = direct_url.encode('utf-8')
+            else:
+                xbmc.log('NetMozi: URLResolver could not resolve url: %s' % final_url, xbmc.LOGNOTICE)
+                xbmcgui.Dialog().notification("URL feloldás hiba", "URL feloldása sikertelen a %s host-on" % urlparse.urlparse(final_url).hostname)
+        except Exception as e:
+            xbmc.log('NetMozi: URLResolver resolved URL: %s' % final_url, xbmc.LOGNOTICE)
+            xbmcgui.Dialog().notification(urlparse.urlparse(url).hostname, e.message)
+            return
+        if direct_url:
+            xbmc.log('NetMozi: playing URL: %s' % direct_url, xbmc.LOGNOTICE)
+            play_item = xbmcgui.ListItem(path=direct_url)
+            xbmcplugin.setResolvedUrl(syshandle, True, listitem=play_item)
 
     def Login(self):
         if (self.username and self.password) != '':
