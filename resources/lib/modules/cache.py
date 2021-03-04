@@ -1,15 +1,14 @@
 # -*- coding: utf-8 -*-
 
-import re,hashlib,time,xbmc,os,xbmcaddon
+import re,hashlib,time
 
 try:
     from sqlite3 import dbapi2 as database
 except:
     from pysqlite2 import dbapi2 as database
 
-addonInfo = xbmcaddon.Addon().getAddonInfo
-dataPath = xbmc.translatePath(addonInfo('profile')).decode('utf-8')
-cacheFile = os.path.join(dataPath, 'cache.db')
+from resources.lib.modules import control
+
 
 def get(function, timeout, *args, **table):
     try:
@@ -30,8 +29,8 @@ def get(function, timeout, *args, **table):
         table = 'rel_list'
 
     try:
-        control.makeFile(dataPath)
-        dbcon = database.connect(cacheFile)
+        control.makeFile(control.dataPath)
+        dbcon = database.connect(control.cacheFile)
         dbcur = dbcon.cursor()
         dbcur.execute("SELECT * FROM %s WHERE func = '%s' AND args = '%s'" % (table, f, a))
         match = dbcur.fetchone()
@@ -90,11 +89,39 @@ def timeout(function, *args, **table):
         table = 'rel_list'
 
     try:
-        control.makeFile(dataPath)
-        dbcon = database.connect(cacheFile)
+        control.makeFile(control.dataPath)
+        dbcon = database.connect(control.cacheFile)
         dbcur = dbcon.cursor()
         dbcur.execute("SELECT * FROM %s WHERE func = '%s' AND args = '%s'" % (table, f, a))
         match = dbcur.fetchone()
         return int(match[3])
     except:
         return
+
+
+def clear(table=None):
+    try:
+        control.idle()
+
+        if table == None: table = ['rel_list', 'rel_lib']
+        elif not type(table) == list: table = [table]
+
+        yes = control.yesnoDialog('Gyorsítótár törlése', 'Biztos benne?', '')
+        if not yes: return
+
+        dbcon = database.connect(control.cacheFile)
+        dbcur = dbcon.cursor()
+
+        for t in table:
+            try:
+                dbcur.execute("DROP TABLE IF EXISTS %s" % t)
+                dbcur.execute("VACUUM")
+                dbcon.commit()
+            except:
+                pass
+
+        control.infoDialog(u'Folyamat befejez\u0151d\u00F6tt')
+    except:
+        pass
+
+

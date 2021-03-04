@@ -17,16 +17,22 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 '''
-
-
-import os,sys,re,xbmc,xbmcgui,xbmcplugin,xbmcaddon,urllib,urlparse,base64,time, locale
+import os,sys,re,xbmc,xbmcgui,xbmcplugin,xbmcaddon, time, locale, base64
 import urlresolver
 from resources.lib.modules import client
+from resources.lib.modules.utils import py2_encode
+
+if sys.version_info[0] == 3:
+    import urllib.parse as urlparse
+    from urllib.parse import quote_plus
+else:
+    import urlparse
+    from urllib import quote_plus
 
 sysaddon = sys.argv[0] ; syshandle = int(sys.argv[1])
 addonFanart = xbmcaddon.Addon().getAddonInfo('fanart')
 
-base_url = 'aHR0cHM6Ly9uZXRtb3ppLmNvbS8='.decode('base64')
+base_url = 'https://netmozi.com/'
 
 class navigator:
     def __init__(self):
@@ -36,7 +42,7 @@ class navigator:
             pass
         self.username = xbmcaddon.Addon().getSetting('username')
         self.password = xbmcaddon.Addon().getSetting('password')
-        self.logincookie = xbmcaddon.Addon().getSetting('logincookie').decode('base64')
+        self.logincookie = base64.b64decode(xbmcaddon.Addon().getSetting('logincookie')).decode('utf-8')
         self.base_path = xbmc.translatePath(xbmcaddon.Addon().getAddonInfo('profile'))
         self.searchFileName = os.path.join(self.base_path, "search.history")
 
@@ -54,7 +60,7 @@ class navigator:
             items.sort(cmp=locale.strcoll)
             file.close()
             for item in items:
-                self.addDirectoryItem(item, 'movies&page=1&type=&order=1&search=%s' % (urllib.quote_plus(item)), '', 'DefaultFolder.png')
+                self.addDirectoryItem(item, 'movies&page=1&type=&order=1&search=%s' % (quote_plus(item)), '', 'DefaultFolder.png')
             if len(items) > 0:
                 self.addDirectoryItem('Keresési előzmények törlése', 'deletesearchhistory', '', 'DefaultFolder.png') 
         except:
@@ -92,19 +98,19 @@ class navigator:
         rows=client.parseDOM(sm8, 'div', attrs={'class': 'row'})
         for row in rows:
             divs=client.parseDOM(row, 'div')
-            if searchStr in divs[0].encode('utf-8'):
-                result=divs[1].encode('utf-8').strip()
+            if searchStr in py2_encode(pydivs[0]):
+                result=py2_encode(divs[1]).strip()
         return result
 
     def getMovies(self, tipus, page, order, search):
         if search == None:
             search = ''
-        url_content = client.request('%s?page=%s&type=%s&order=%s&search=%s' % (base_url, page, tipus, order, urllib.quote_plus(search)))
+        url_content = client.request('%s?page=%s&type=%s&order=%s&search=%s' % (base_url, page, tipus, order, quote_plus(search)))
         movies = client.parseDOM(url_content, 'div', attrs={'class': 'col-sm-4 col_main'})
         if len(movies)>0:
             for movie in movies:
                 tempTitle = client.parseDOM(movie, 'div', attrs={'class': 'col_name'})[0]
-                title = client.replaceHTMLCodes(tempTitle).encode('utf-8').replace('<small>(sorozat)</small>', '')
+                title = py2_encode(client.replaceHTMLCodes(tempTitle)).replace('<small>(sorozat)</small>', '')
                 isSorozat = "(sorozat)" in tempTitle
                 sorozatLabel = ''
                 if isSorozat and tipus != "2":
@@ -114,9 +120,9 @@ class navigator:
                 thumb = 'https:'+client.parseDOM(thumbDiv, 'img', ret='src')[0]
                 infoDiv = client.parseDOM(movie, 'div', attrs={'class': 'col-sm-6'})[1]
                 infoRows = client.parseDOM(infoDiv, 'div', attrs={'class': 'row'})
-                year = re.sub('<.*>', '', client.replaceHTMLCodes(infoRows[0]).encode('utf-8')).strip()
-                duration = int(re.sub('<.*>', '', client.replaceHTMLCodes(infoRows[1]).encode('utf-8')).strip().replace(' perc',''))*60
-                linkcount = re.sub('<.*>', '', client.replaceHTMLCodes(infoRows[2]).encode('utf-8')).strip().replace('db', '')
+                year = re.sub('<.*>', '', py2_encode(client.replaceHTMLCodes(infoRows[0]))).strip()
+                duration = int(re.sub('<.*>', '', py2_encode(client.replaceHTMLCodes(infoRows[1]))).strip().replace(' perc',''))*60
+                linkcount = re.sub('<.*>', '', py2_encode(client.replaceHTMLCodes(infoRows[2]))).strip().replace('db', '')
                 action='series' if isSorozat else 'movie'
                 self.addDirectoryItem('%s (%s)%s | [COLOR limegreen]%s link[/COLOR]' %(title, year, sorozatLabel, linkcount), '%s&url=%s' % (action, url), thumb, 'DefaultMovies.png' if isSorozat else 'DefaultTVShows.png', meta={'title': title, 'duration': duration, 'fanart': thumb})
             pager = client.parseDOM(url_content, 'select', attrs={'name': 'page'})[0]
@@ -133,7 +139,7 @@ class navigator:
         url_content = client.request('%s%s' %(base_url, url), cookie=self.logincookie)
         container = client.parseDOM(url_content, 'div', attrs={'class': 'container'})[0]
         temp = client.parseDOM(container, 'h3')[0]
-        title = client.replaceHTMLCodes(client.parseDOM(temp, 'a')[0]).encode('utf-8').strip()        
+        title = py2_encode(client.replaceHTMLCodes(client.parseDOM(temp, 'a')[0])).strip()        
         temp = client.parseDOM(container, 'div', attrs={'class': 'col-sm-8'})[0]
         plot = self.getInfo(temp, 'Leírás')
         duration = int(self.getInfo(temp, 'Játékidő:').replace(' perc', ''))*60
@@ -142,7 +148,7 @@ class navigator:
         series = client.parseDOM(url_content, 'ul', attrs={'id': 'seasonUl'})
         series = client.parseDOM(series, 'a')
         for serie in series:
-            self.addDirectoryItem('%s. évad' % serie.encode('utf-8'), 'episodes&url=%s&serie=%s' % (url, serie), thumb, 'DefaultTVShows.png', meta={'title': '%s - %s. évad' % (title, serie.encode('utf-8')), 'plot': plot, 'duration': duration, 'fanart': thumb})
+            self.addDirectoryItem('%s. évad' % py2_encode(serie), 'episodes&url=%s&serie=%s' % (url, serie), thumb, 'DefaultTVShows.png', meta={'title': '%s - %s. évad' % (title, py2_encode(serie)), 'plot': plot, 'duration': duration, 'fanart': thumb})
         self.endDirectory(type="movies")
 
     def getEpisodes(self, url, serie):
@@ -151,7 +157,7 @@ class navigator:
         url_content = client.request('%s%s' %(base_url, url), cookie=self.logincookie)
         container = client.parseDOM(url_content, 'div', attrs={'class': 'container'})[0]
         temp = client.parseDOM(container, 'h3')[0]
-        title = client.replaceHTMLCodes(client.parseDOM(temp, 'a')[0]).encode('utf-8').strip()        
+        title = py2_encode(client.replaceHTMLCodes(client.parseDOM(temp, 'a')[0])).strip()        
         temp = client.parseDOM(container, 'div', attrs={'class': 'col-sm-8'})[0]
         plot = self.getInfo(temp, 'Leírás')
         duration = int(self.getInfo(temp, 'Játékidő:').replace(' perc', ''))*60
@@ -160,7 +166,7 @@ class navigator:
         episodes = client.parseDOM(url_content, 'ul', attrs={'id': 'seasonUl%s' % serie})
         episodes = client.parseDOM(episodes, 'a')
         for episode in episodes:
-            self.addDirectoryItem('%s. rész' % episode.encode('utf-8'), 'movie&url=%s/s%s/e%s' % (url, serie, episode), thumb, 'DefaultTVShows.png', meta={'title': '%s - %s. évad %s. rész' % (title, serie, episode.encode('utf-8')), 'plot': plot, 'duration': duration, 'fanart': thumb})
+            self.addDirectoryItem('%s. rész' % py2_encode(episode), 'movie&url=%s/s%s/e%s' % (url, serie, episode), thumb, 'DefaultTVShows.png', meta={'title': '%s - %s. évad %s. rész' % (title, serie, py2_encode(episode)), 'plot': plot, 'duration': duration, 'fanart': thumb})
         self.endDirectory(type="movies")
 
     def getMovie(self, url):
@@ -173,7 +179,7 @@ class navigator:
             movieURL = 'https:%s' % client.parseDOM(url_content, 'a', attrs={'class': 'details_links_btn'}, ret='href')[0]
             container = client.parseDOM(url_content, 'div', attrs={'class': 'container'})[0]
             temp = client.parseDOM(container, 'h3')[0]
-            title = client.replaceHTMLCodes(client.parseDOM(temp, 'a')[0]).encode('utf-8').strip()
+            title = py2_encode(client.replaceHTMLCodes(client.parseDOM(temp, 'a')[0])).strip()
             temp = client.parseDOM(container, 'div', attrs={'class': 'col-sm-4'})[0]
             thumb = 'https:'+client.parseDOM(temp, 'img', ret='src')[0]
             temp = client.parseDOM(container, 'div', attrs={'class': 'col-sm-8'})[0]
@@ -181,7 +187,7 @@ class navigator:
             duration = int(self.getInfo(temp, 'Játékidő:').replace(' perc', ''))*60
             serieInfo = client.parseDOM(url_content, 'h4')
             if serieInfo:
-                serieInfo=' - %s' % serieInfo[0].encode('utf-8')
+                serieInfo=' - %s' % py2_encode(serieInfo[0])
             else:
                 serieInfo=''
             url_content = client.request(movieURL)
@@ -204,9 +210,9 @@ class navigator:
                     if 'red_mark.png' in cols[1]:
                         valid = '| [COLOR red]Érvénytelen[/COLOR]'
                     mURL = urlparse.urlsplit(movieURL)
-                    url=urlparse.urljoin('%s://%s' %(mURL.scheme, mURL.netloc),client.parseDOM(cols[3], 'a', attrs={'class': 'btn btn-outline-primary btn-sm'}, ret='href')[0].encode('utf-8'))
-                    quality=cols[4].encode('utf-8')
-                    site=cols[5].encode('utf-8')
+                    url=urlparse.urljoin(py2_encode('%s://%s' %(mURL.scheme, mURL.netloc),client.parseDOM(cols[3], 'a', attrs={'class': 'btn btn-outline-primary btn-sm'}, ret='href')[0]))
+                    quality=py2_encode(cols[4])
+                    site=py2_encode(cols[5])
                     self.addDirectoryItem('%s | [B]%s[/B] | [COLOR limegreen]%s[/COLOR] | [COLOR blue]%s[/COLOR] %s' % (format(sourceCnt, '02'), site, nyelv, quality, valid), 'playmovie&url=%s' % url, thumb, 'DefaultMovies.png', isFolder=False, meta={'title': title + serieInfo, 'plot': plot, 'duration': duration, 'fanart': thumb})
         self.endDirectory(type="movies")
 
@@ -217,14 +223,14 @@ class navigator:
         try:
             direct_url = urlresolver.resolve(final_url)
             if direct_url:
-                xbmc.log('NetMozi: URLResolver resolved URL: %s' % direct_url, xbmc.LOGNOTICE)
-                direct_url = direct_url.encode('utf-8')
+                xbmc.log('NetMozi: URLResolver resolved URL: %s' % direct_url, xbmc.LOGINFO)
+                direct_url = py2_encode(direct_url)
             else:
-                xbmc.log('NetMozi: URLResolver could not resolve url: %s' % final_url, xbmc.LOGNOTICE)
+                xbmc.log('NetMozi: URLResolver could not resolve url: %s' % final_url, xbmc.LOGINFO)
                 xbmcgui.Dialog().notification("URL feloldás hiba", "URL feloldása sikertelen a %s host-on" % urlparse.urlparse(final_url).hostname)
         except Exception as e:
-            xbmc.log('NetMozi: URLResolver resolved URL: %s' % final_url, xbmc.LOGNOTICE)
-            xbmcgui.Dialog().notification(urlparse.urlparse(url).hostname, e.message)
+            xbmc.log('NetMozi: URLResolver resolved URL: %s' % final_url, xbmc.LOGINFO)
+            xbmcgui.Dialog().notification(urlparse.urlparse(url).hostname, str(e))
             return
         if direct_url:
             xbmc.log('NetMozi: playing URL: %s' % direct_url, xbmc.LOGNOTICE)
@@ -245,7 +251,7 @@ class navigator:
             login_cookies = client.request(login_url, post="username=%s&password=%s" % (self.username, self.password), output='cookie')
             if 'ca' in login_cookies:
                 xbmcaddon.Addon().setSetting('logintimestamp', str(t2))
-                xbmcaddon.Addon().setSetting('logincookie', base64.b64encode(login_cookies))
+                xbmcaddon.Addon().setSetting('logincookie', base64.b64encode(login_cookies.encode('ascii')))
                 self.logincookie=login_cookies
             else:
                 xbmcgui.Dialog().ok(u'NetMozi', u'Bejelentkez\u00E9si hiba!')
@@ -259,7 +265,7 @@ class navigator:
         if thumb == '': thumb = icon
         cm = []
         if queue == True: cm.append((queueMenu, 'RunPlugin(%s?action=queueItem)' % sysaddon))
-        if not context == None: cm.append((context[0].encode('utf-8'), 'RunPlugin(%s?action=%s)' % (sysaddon, context[1])))
+        if not context == None: cm.append((py2_encode(context[0]), 'RunPlugin(%s?action=%s)' % (sysaddon, context[1])))
         item = xbmcgui.ListItem(label=name)
         item.addContextMenuItems(cm)
         item.setArt({'icon': thumb, 'thumb': thumb, 'poster': thumb})
