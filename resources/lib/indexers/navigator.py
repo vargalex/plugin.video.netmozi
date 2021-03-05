@@ -98,7 +98,7 @@ class navigator:
         rows=client.parseDOM(sm8, 'div', attrs={'class': 'row'})
         for row in rows:
             divs=client.parseDOM(row, 'div')
-            if searchStr in py2_encode(pydivs[0]):
+            if searchStr in py2_encode(divs[0]):
                 result=py2_encode(divs[1]).strip()
         return result
 
@@ -210,16 +210,17 @@ class navigator:
                     if 'red_mark.png' in cols[1]:
                         valid = '| [COLOR red]Érvénytelen[/COLOR]'
                     mURL = urlparse.urlsplit(movieURL)
-                    url=urlparse.urljoin(py2_encode('%s://%s' %(mURL.scheme, mURL.netloc),client.parseDOM(cols[3], 'a', attrs={'class': 'btn btn-outline-primary btn-sm'}, ret='href')[0]))
+                    url=urlparse.urljoin('%s://%s' % (mURL.scheme, mURL.netloc),py2_encode(client.parseDOM(cols[3], 'a', attrs={'class': 'btn btn-outline-primary btn-sm'}, ret='href')[0]))
                     quality=py2_encode(cols[4])
                     site=py2_encode(cols[5])
                     self.addDirectoryItem('%s | [B]%s[/B] | [COLOR limegreen]%s[/COLOR] | [COLOR blue]%s[/COLOR] %s' % (format(sourceCnt, '02'), site, nyelv, quality, valid), 'playmovie&url=%s' % url, thumb, 'DefaultMovies.png', isFolder=False, meta={'title': title + serieInfo, 'plot': plot, 'duration': duration, 'fanart': thumb})
         self.endDirectory(type="movies")
 
     def playmovie(self, url):
-        xbmc.log('NetMozi: Try to play from URL: %s' % url, xbmc.LOGNOTICE)
-        final_url = client.request(url, cookie=self.logincookie, redirect=False, output="geturl")
-        xbmc.log('NetMozi: final URL: %s' % final_url, xbmc.LOGNOTICE)
+        self.Login()
+        xbmc.log('NetMozi: Try to play from URL: %s' % url, xbmc.LOGINFO)
+        final_url = client.request(url, cookie=self.logincookie, output="geturl")
+        xbmc.log('NetMozi: final URL: %s' % final_url, xbmc.LOGINFO)
         try:
             direct_url = urlresolver.resolve(final_url)
             if direct_url:
@@ -233,7 +234,7 @@ class navigator:
             xbmcgui.Dialog().notification(urlparse.urlparse(url).hostname, str(e))
             return
         if direct_url:
-            xbmc.log('NetMozi: playing URL: %s' % direct_url, xbmc.LOGNOTICE)
+            xbmc.log('NetMozi: playing URL: %s' % direct_url, xbmc.LOGINFO)
             play_item = xbmcgui.ListItem(path=direct_url)
             xbmcplugin.setResolvedUrl(syshandle, True, listitem=play_item)
 
