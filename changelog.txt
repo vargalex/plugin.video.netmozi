@@ -1,4 +1,7 @@
-﻿[B]1.0.8[/B]
+﻿[B]1.0.9[/B]
+- Profile path dekódolás
+
+[B]1.0.8[/B]
 - Keresési előzmények javítása
 
 [B]1.0.7[/B]

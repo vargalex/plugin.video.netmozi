@@ -20,7 +20,7 @@
 import os,sys,re,xbmc,xbmcgui,xbmcplugin,xbmcaddon, time, locale, base64
 import urlresolver
 from resources.lib.modules import client
-from resources.lib.modules.utils import py2_encode
+from resources.lib.modules.utils import py2_encode, py2_decode
 
 if sys.version_info[0] == 3:
     import urllib.parse as urlparse
@@ -43,7 +43,7 @@ class navigator:
         self.username = xbmcaddon.Addon().getSetting('username')
         self.password = xbmcaddon.Addon().getSetting('password')
         self.logincookie = base64.b64decode(xbmcaddon.Addon().getSetting('logincookie')).decode('utf-8')
-        self.base_path = xbmc.translatePath(xbmcaddon.Addon().getAddonInfo('profile'))
+        self.base_path = py2_decode(xbmc.translatePath(xbmcaddon.Addon().getAddonInfo('profile')))
         self.searchFileName = os.path.join(self.base_path, "search.history")
 
     def root(self):
