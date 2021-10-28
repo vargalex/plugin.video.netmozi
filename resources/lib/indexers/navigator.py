@@ -18,7 +18,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 '''
 import os,sys,re,xbmc,xbmcgui,xbmcplugin,xbmcaddon, time, locale, base64
-import urlresolver
+import resolveurl as urlresolver
 from resources.lib.modules import client
 from resources.lib.modules.utils import py2_encode, py2_decode
 
