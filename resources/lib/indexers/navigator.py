@@ -37,9 +37,12 @@ base_url = 'https://netmozi.com/'
 class navigator:
     def __init__(self):
         try:
-            locale.setlocale(locale.LC_ALL, "")
+            locale.setlocale(locale.LC_ALL, "hu_HU.UTF-8")
         except:
-            pass
+            try:
+                locale.setlocale(locale.LC_ALL, "")
+            except:
+                pass
         self.username = xbmcaddon.Addon().getSetting('username')
         self.password = xbmcaddon.Addon().getSetting('password')
         self.logincookie = base64.b64decode(xbmcaddon.Addon().getSetting('logincookie')).decode('utf-8')

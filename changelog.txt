@@ -1,4 +1,7 @@
-﻿[B]1.0.11[/B]
+﻿[B]1.0.12[B]
+- Keresés bugfix
+
+[B]1.0.11[/B]
 - Forrás változás követése
 - Nexus kompatibilitás
 
