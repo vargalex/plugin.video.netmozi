@@ -1,4 +1,8 @@
-﻿[B]1.0.10[/B]
+﻿[B]1.0.11[/B]
+- Forrás változás követése
+- Nexus kompatibilitás
+
+[B]1.0.10[/B]
 - Átállás resolveurl-re
 
 [B]1.0.9[/B]

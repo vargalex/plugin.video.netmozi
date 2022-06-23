@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<addon id="plugin.video.netmozi" name="NetMozi" version="1.0.10" provider-name="vargalex">
+<addon id="plugin.video.netmozi" name="NetMozi" version="1.0.11" provider-name="vargalex">
 	<requires>
-		<import addon="script.module.resolveurl" version="5.1.00"/>
+		<import addon="script.module.resolveurl" version="5.1.00" />
 	</requires>
 	<extension point="xbmc.python.pluginsource" library="default.py">
 		<provides>video</provides>
@@ -11,13 +11,15 @@
 		<description lang="en">Nézd meg a filmeket, sorozatokat a http://www.netmozi.com oldalról!</description>
 		<language>hu</language>
 		<platform>all</platform>
-		<news>- Átállás resolveurl-re</news>
+		<news>- Forrás változás követése
+			  - Nexus kompatibilitás
+		</news>
 		<assets>
-		  <icon>icon.png</icon>
-		  <fanart></fanart>
-		  <screenshot>resources/screenshots/screenshot-1.jpg</screenshot>
-		  <screenshot>resources/screenshots/screenshot-2.jpg</screenshot>
-		  <screenshot>resources/screenshots/screenshot-3.jpg</screenshot>
+			<icon>icon.png</icon>
+			<fanart></fanart>
+			<screenshot>resources/screenshots/screenshot-1.jpg</screenshot>
+			<screenshot>resources/screenshots/screenshot-2.jpg</screenshot>
+			<screenshot>resources/screenshots/screenshot-3.jpg</screenshot>
 		</assets>
 	</extension>
 </addon>

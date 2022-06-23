@@ -19,7 +19,7 @@
 '''
 import os,sys,re,xbmc,xbmcgui,xbmcplugin,xbmcaddon, time, locale, base64
 import resolveurl as urlresolver
-from resources.lib.modules import client
+from resources.lib.modules import client, control
 from resources.lib.modules.utils import py2_encode, py2_decode
 
 if sys.version_info[0] == 3:
@@ -43,7 +43,7 @@ class navigator:
         self.username = xbmcaddon.Addon().getSetting('username')
         self.password = xbmcaddon.Addon().getSetting('password')
         self.logincookie = base64.b64decode(xbmcaddon.Addon().getSetting('logincookie')).decode('utf-8')
-        self.base_path = py2_decode(xbmc.translatePath(xbmcaddon.Addon().getAddonInfo('profile')))
+        self.base_path = py2_decode(control.transPath(control.addonInfo('profile')))
         self.searchFileName = os.path.join(self.base_path, "search.history")
 
     def root(self):
@@ -225,17 +225,22 @@ class navigator:
         self.Login()
         xbmc.log('NetMozi: Try to play from URL: %s' % url, xbmc.LOGINFO)
         final_url = client.request(url, cookie=self.logincookie, output="geturl")
+        if "mindjart.megnezed" in final_url:
+            url_content = client.request(final_url)
+            matches = re.search(r'^(.*)function counter(.*)var link([^=]*)=([^"]*)"([^"]*)";(.*)$', url_content, re.S)
+            if matches:
+                final_url = base64.b64decode(matches.group(5)).decode('utf-8')
         xbmc.log('NetMozi: final URL: %s' % final_url, xbmc.LOGINFO)
         try:
             direct_url = urlresolver.resolve(final_url)
             if direct_url:
-                xbmc.log('NetMozi: URLResolver resolved URL: %s' % direct_url, xbmc.LOGINFO)
+                xbmc.log('NetMozi: ResolveURL resolved URL: %s' % direct_url, xbmc.LOGINFO)
                 direct_url = py2_encode(direct_url)
             else:
-                xbmc.log('NetMozi: URLResolver could not resolve url: %s' % final_url, xbmc.LOGINFO)
+                xbmc.log('NetMozi: ResolveURL could not resolve url: %s' % final_url, xbmc.LOGINFO)
                 xbmcgui.Dialog().notification("URL feloldás hiba", "URL feloldása sikertelen a %s host-on" % urlparse.urlparse(final_url).hostname)
         except Exception as e:
-            xbmc.log('NetMozi: URLResolver resolved URL: %s' % final_url, xbmc.LOGINFO)
+            xbmc.log('NetMozi: ResolveURL resolved URL: %s' % final_url, xbmc.LOGINFO)
             xbmcgui.Dialog().notification(urlparse.urlparse(url).hostname, str(e))
             return
         if direct_url:
