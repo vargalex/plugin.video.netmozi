@@ -218,7 +218,7 @@ class navigator:
                     if 'red_mark.png' in cols[1]:
                         valid = '| [COLOR red]Érvénytelen[/COLOR]'
                     mURL = urlparse.urlsplit(movieURL)
-                    url=urlparse.urljoin('%s://%s' % (mURL.scheme, mURL.netloc),py2_encode(client.parseDOM(cols[3], 'a', attrs={'class': 'btn btn-outline-primary btn-sm'}, ret='href')[0]))
+                    url=urlparse.urljoin('%s://%s' % (mURL.scheme, mURL.netloc),py2_encode(client.parseDOM(cols[3], 'a', attrs={'class': 'btn btn-outline-primary btn-sm'}, ret='href')[-1]))
                     quality=py2_encode(cols[4])
                     site=py2_encode(cols[5])
                     self.addDirectoryItem('%s | [B]%s[/B] | [COLOR limegreen]%s[/COLOR] | [COLOR blue]%s[/COLOR] %s' % (format(sourceCnt, '02'), site, nyelv, quality, valid), 'playmovie&url=%s' % url, thumb, 'DefaultMovies.png', isFolder=False, meta={'title': title + serieInfo, 'plot': plot, 'duration': duration, 'fanart': thumb})
@@ -233,6 +233,8 @@ class navigator:
             matches = re.search(r'^(.*)function counter(.*)var link([^=]*)=([^"]*)"([^"]*)";(.*)$', url_content, re.S)
             if matches:
                 final_url = base64.b64decode(matches.group(5)).decode('utf-8')
+            else:
+                final_url = client.parseDOM(url_content.lower(), "iframe", ret="src")[0]
         xbmc.log('NetMozi: final URL: %s' % final_url, xbmc.LOGINFO)
         try:
             direct_url = urlresolver.resolve(final_url)

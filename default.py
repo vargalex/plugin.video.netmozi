@@ -28,7 +28,7 @@ else:
     from urlparse import parse_qsl
 
 
-params = dict(parse_qsl(sys.argv[2].replace('?','')))
+params = dict(parse_qsl(sys.argv[2].replace('?', '', 1)))
 
 action = params.get('action')
 
