@@ -245,8 +245,17 @@ class navigator:
             xbmcgui.Dialog().notification(urlparse.urlparse(url).hostname, str(e))
             return
         if direct_url:
-            xbmc.log('NetMozi: playing URL: %s' % direct_url, xbmc.LOGINFO)
             play_item = xbmcgui.ListItem(path=direct_url)
+            if 'm3u8' in direct_url:
+                from inputstreamhelper import Helper
+                is_helper = Helper('hls')
+                if is_helper.check_inputstream():
+                    if sys.version_info < (3, 0):  # if python version < 3 is safe to assume we are running on Kodi 18
+                        play_item.setProperty('inputstreamaddon', 'inputstream.adaptive')   # compatible with Kodi 18 API
+                    else:
+                        play_item.setProperty('inputstream', 'inputstream.adaptive')  # compatible with recent builds Kodi 19 API
+                    play_item.setProperty('inputstream.adaptive.manifest_type', 'hls')
+            xbmc.log('NetMozi: playing URL: %s' % direct_url, xbmc.LOGINFO)
             xbmcplugin.setResolvedUrl(syshandle, True, listitem=play_item)
 
     def Login(self):

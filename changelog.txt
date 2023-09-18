@@ -1,4 +1,7 @@
-﻿[B]1.0.14[/B]
+﻿[B]1.0.15[/B]
+- m3u8 forrás esetén inputstream adaptive használata
+
+[B]1.0.14[/B]
 - Forrás változás követése
 
 [B]1.0.13[/B]
