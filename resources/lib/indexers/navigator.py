@@ -78,9 +78,9 @@ class navigator:
     def getOrderTypes(self, tipus):
         url_content = client.request(base_url)
         select = client.parseDOM(url_content, 'select', attrs={'id': 'order_by_select'})[0]
-        matches=re.findall(r'<option value="([0-9])">(.*)</option>', select)
+        matches=re.findall(r'<option value="([0-9])"(.*)>(.*)</option>', select)
         for match in matches:
-                self.addDirectoryItem(match[1], 'movies&page=1&type=%s&order=%s&search=' % (tipus, match[0]), '', 'DefaultFolder.png')
+                self.addDirectoryItem(match[2], 'movies&page=1&type=%s&order=%s&search=' % (tipus, match[0]), '', 'DefaultFolder.png')
         self.endDirectory()
 
     def deleteSearchHistory(self):
