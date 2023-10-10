@@ -230,8 +230,11 @@ class navigator:
             if matches:
                 final_url = base64.b64decode(matches.group(5)).decode('utf-8')
             else:
-                iframeStr = re.search("iframe", url_content, re.IGNORECASE)[0]
-                final_url = client.parseDOM(url_content, iframeStr, ret="src")[0]
+                data = re.search(r'<iframe[^>]*src="([^"]+)"', url_content, re.IGNORECASE)
+                if data:
+                    final_url = data[1]
+                else:
+                    xbmc.log('NetMozi: cannot find <iframe[^>]*src="([^"]+)" in %s' % final_url)
         xbmc.log('NetMozi: final URL: %s' % final_url, xbmc.LOGINFO)
         try:
             direct_url = urlresolver.resolve(final_url)
