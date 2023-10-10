@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<addon id="plugin.video.netmozi" name="NetMozi" version="1.0.18" provider-name="vargalex">
+<addon id="plugin.video.netmozi" name="NetMozi" version="1.0.19" provider-name="vargalex">
 	<requires>
 		<import addon="script.module.resolveurl" version="5.1.00" />
 		<import addon="script.module.inputstreamhelper" version="0.4.3"/>
@@ -12,7 +12,7 @@
 		<description lang="en">Nézd meg a filmeket, sorozatokat a http://www.netmozi.com oldalról!</description>
 		<language>hu</language>
 		<platform>all</platform>
-		<news>- Forrás kinyerés bugfix v2
+		<news>- Forrás kinyerés bugfix v3
 		</news>
 		<assets>
 			<icon>icon.png</icon>

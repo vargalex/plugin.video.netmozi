@@ -230,7 +230,7 @@ class navigator:
             if matches:
                 final_url = base64.b64decode(matches.group(5)).decode('utf-8')
             else:
-                data = re.search(r'<iframe[^>]*src="([^"]+)"', url_content, re.IGNORECASE)
+                data = re.search(r'<iframe[^>]*src=[\'"]([^\'"]+)[\'"]', url_content, re.IGNORECASE)
                 if data:
                     final_url = data[1]
                 else:

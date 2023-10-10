@@ -1,4 +1,7 @@
-﻿[B]1.0.18[/B]
+﻿[B]1.0.19[/B]
+- Forrás kinyerés bugfix v3
+
+[B]1.0.18[/B]
 - Forrás kinyerés bugfix v2
 
 [B]1.0.17[/B]
