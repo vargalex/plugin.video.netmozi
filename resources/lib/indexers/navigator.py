@@ -272,7 +272,7 @@ class navigator:
                     content = client.request(final_url)
                     subtitles = re.findall(r'file2sub\("([^"]*)"[^"]*"([^"]*)"', content)
                     if subtitles:
-                        xbmc.log('NetMozi: Found subtitle count: %d' % len(subtitles))
+                        xbmc.log('NetMozi: Found subtitle count: %d' % len(subtitles), xbmc.LOGINFO)
                         errMsg = "Hiba a sorozat felirat letöltésekor!"
                         for sub in subtitles:
                             subtitle = client.request(sub[0])

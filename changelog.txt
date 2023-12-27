@@ -1,4 +1,7 @@
-﻿[B]1.0.20[/B]
+﻿[B]1.0.21[/B]
+- BugFix
+
+[B]1.0.20[/B]
 - Felirat letöltésének és beállításának kísérlete
 
 [B]1.0.19[/B]
