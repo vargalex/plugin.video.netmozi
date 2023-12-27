@@ -20,7 +20,7 @@
 import os,sys,re,xbmc,xbmcgui,xbmcplugin,xbmcaddon, time, locale, base64
 import resolveurl as urlresolver
 from resources.lib.modules import client, control
-from resources.lib.modules.utils import py2_encode, py2_decode
+from resources.lib.modules.utils import py2_encode, py2_decode, safeopen
 
 if sys.version_info[0] == 3:
     import urllib.parse as urlparse
@@ -45,6 +45,7 @@ class navigator:
                 pass
         self.username = xbmcaddon.Addon().getSetting('username')
         self.password = xbmcaddon.Addon().getSetting('password')
+        self.downloadsubtitles = xbmcaddon.Addon().getSettingBool('downloadsubtitles')
         self.logincookie = base64.b64decode(xbmcaddon.Addon().getSetting('logincookie')).decode('utf-8')
         self.base_path = py2_decode(control.transPath(control.addonInfo('profile')))
         self.searchFileName = os.path.join(self.base_path, "search.history")
@@ -217,10 +218,10 @@ class navigator:
                     url=urlparse.urljoin('%s://%s' % (mURL.scheme, mURL.netloc),py2_encode(client.parseDOM(cols[3], 'a', attrs={'class': 'btn btn-outline-primary btn-sm'}, ret='href')[-1]))
                     quality=py2_encode(cols[4])
                     site=py2_encode(cols[5])
-                    self.addDirectoryItem('%s | [B]%s[/B] | [COLOR limegreen]%s[/COLOR] | [COLOR blue]%s[/COLOR] %s' % (format(sourceCnt, '02'), site, nyelv, quality, valid), 'playmovie&url=%s' % url, thumb, 'DefaultMovies.png', isFolder=False, meta={'title': title + serieInfo, 'plot': plot, 'duration': duration, 'fanart': thumb})
+                    self.addDirectoryItem('%s | [B]%s[/B] | [COLOR limegreen]%s[/COLOR] | [COLOR blue]%s[/COLOR] %s' % (format(sourceCnt, '02'), site, nyelv, quality, valid), 'playmovie&url=%s&subtitled=%s' % (url, 'true' if nyelv == 'Felirat' else 'false'), thumb, 'DefaultMovies.png', isFolder=False, meta={'title': title + serieInfo, 'plot': plot, 'duration': duration, 'fanart': thumb})
         self.endDirectory(type="movies")
 
-    def playmovie(self, url):
+    def playmovie(self, url, subtitled):
         self.Login()
         xbmc.log('NetMozi: Try to play from URL: %s' % url, xbmc.LOGINFO)
         final_url = client.request(url, cookie=self.logincookie, output="geturl")
@@ -259,6 +260,37 @@ class navigator:
                     else:
                         play_item.setProperty('inputstream', 'inputstream.adaptive')  # compatible with recent builds Kodi 19 API
                     play_item.setProperty('inputstream.adaptive.manifest_type', 'hls')
+            if subtitled and self.downloadsubtitles:
+                try:
+                    if not os.path.exists(os.path.join(self.base_path, "subtitles")):
+                        errMsg = "Hiba a felirat könyvtár létrehozásakor!"
+                        os.mkdir(os.path.join(self.base_path, "subtitles"))
+                    for f in os.listdir(os.path.join(self.base_path, "subtitles")):
+                        errMsg = "Hiba a korábbi feliratok törlésekor!"
+                        os.remove(os.path.join(self.base_path, "subtitles", f))
+                    finalsubtitles=[]
+                    content = client.request(final_url)
+                    subtitles = re.findall(r'file2sub\("([^"]*)"[^"]*"([^"]*)"', content)
+                    if subtitles:
+                        xbmc.log('NetMozi: Found subtitle count: %d' % len(subtitles))
+                        errMsg = "Hiba a sorozat felirat letöltésekor!"
+                        for sub in subtitles:
+                            subtitle = client.request(sub[0])
+                            if len(subtitle) > 0:
+                                errMsg = "Hiba a sorozat felirat file kiírásakor!"
+                                file = safeopen(os.path.join(self.base_path, "subtitles", "%s.srt" % sub[1]), "w")
+                                file.write(subtitle)
+                                file.close()
+                                errMsg = "Hiba a sorozat felirat file hozzáadásakor!"
+                                finalsubtitles.append("%s/subtitles/%s.srt" % (self.base_path, sub[1]))
+                    else:
+                        xbmc.log("NetMozi: Subtitles not found in source", xbmc.LOGERROR)
+                    if len(finalsubtitles)>0:
+                        errMsg = "Hiba a feliratok beállításakor!"
+                        play_item.setSubtitles(finalsubtitles)
+                except:
+                    xbmcgui.Dialog().notification("NetMozi hiba", errMsg, xbmcgui.NOTIFICATION_ERROR)
+                    xbmc.log("Hiba a %s URL-hez tartozó felirat letöltésekor, hiba: %s" % (py2_encode(final_url), py2_encode(errMsg)), xbmc.LOGERROR)
             xbmc.log('NetMozi: playing URL: %s' % direct_url, xbmc.LOGINFO)
             xbmcplugin.setResolvedUrl(syshandle, True, listitem=play_item)
 

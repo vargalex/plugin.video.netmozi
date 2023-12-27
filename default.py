@@ -44,6 +44,8 @@ search = params.get('search')
 
 serie = params.get('serie')
 
+subtitled = params.get('subtitled') == 'true'
+
 if action == None:
     navigator.navigator().root()
 
@@ -58,7 +60,7 @@ elif action == 'movie':
     navigator.navigator().getMovie(url)
 
 elif action == 'playmovie':
-    navigator.navigator().playmovie(url)
+    navigator.navigator().playmovie(url, subtitled)
 
 elif action == 'search':
     navigator.navigator().getSearches()
