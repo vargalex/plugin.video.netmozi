@@ -242,8 +242,9 @@ class navigator:
             if jsunhunt.detect(html):
                 html = jsunhunt.unhunt(html)
                 match=re.search(r'.*setAttribute\("src","([^"]*)".*', html)
-                newURL = urlparse.urljoin(final_url, match.group(1))
-                final_url = client.request(newURL, output="geturl")
+                if match:
+                    newURL = urlparse.urljoin(final_url, match.group(1))
+                    final_url = client.request(newURL, output="geturl")
         xbmc.log('NetMozi: final URL: %s' % final_url, xbmc.LOGINFO)
         try:
             direct_url = urlresolver.resolve(final_url)
