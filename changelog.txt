@@ -1,4 +1,7 @@
-﻿[B]1.0.21[/B]
+﻿[B]1.0.22[/B]
+- Resolve streamplay, sbot sources
+
+[B]1.0.21[/B]
 - BugFix
 
 [B]1.0.20[/B]

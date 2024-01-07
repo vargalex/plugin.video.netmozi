@@ -236,6 +236,14 @@ class navigator:
                     final_url = data[1]
                 else:
                     xbmc.log('NetMozi: cannot find <iframe[^>]*src="([^"]+)" in %s' % final_url)
+        if "streamplay" in final_url or "sbot" in final_url:
+            html = client.request(final_url)
+            from resolveurl.lib import jsunhunt
+            if jsunhunt.detect(html):
+                html = jsunhunt.unhunt(html)
+                match=re.search(r'.*setAttribute\("src","([^"]*)".*', html)
+                newURL = urlparse.urljoin(final_url, match.group(1))
+                final_url = client.request(newURL, output="geturl")
         xbmc.log('NetMozi: final URL: %s' % final_url, xbmc.LOGINFO)
         try:
             direct_url = urlresolver.resolve(final_url)
