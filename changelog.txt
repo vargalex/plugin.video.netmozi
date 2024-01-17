@@ -1,4 +1,7 @@
-﻿[B]1.0.23[/B]
+﻿[B]1.0.24[/B]
+- Felirat kinyerése ResolveURL-el
+
+[B]1.0.23[/B]
 - BugFix
 
 [B]1.0.22[/B]

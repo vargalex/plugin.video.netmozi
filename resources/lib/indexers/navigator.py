@@ -18,7 +18,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 '''
 import os,sys,re,xbmc,xbmcgui,xbmcplugin,xbmcaddon, time, locale, base64
-import resolveurl as urlresolver
+import resolveurl
 from resources.lib.modules import client, control
 from resources.lib.modules.utils import py2_encode, py2_decode, safeopen
 
@@ -236,6 +236,7 @@ class navigator:
                     final_url = data[1]
                 else:
                     xbmc.log('NetMozi: cannot find <iframe[^>]*src="([^"]+)" in %s' % final_url)
+        xbmc.log('NetMozi: final_url: %s' % final_url, xbmc.LOGINFO)
         if "streamplay" in final_url or "sbot" in final_url:
             html = client.request(final_url)
             from resolveurl.lib import jsunhunt
@@ -246,19 +247,15 @@ class navigator:
                     newURL = urlparse.urljoin(final_url, match.group(1))
                     final_url = client.request(newURL, output="geturl")
         xbmc.log('NetMozi: final URL: %s' % final_url, xbmc.LOGINFO)
-        try:
-            direct_url = urlresolver.resolve(final_url)
-            if direct_url:
-                xbmc.log('NetMozi: ResolveURL resolved URL: %s' % direct_url, xbmc.LOGINFO)
-                direct_url = py2_encode(direct_url)
-            else:
-                xbmc.log('NetMozi: ResolveURL could not resolve url: %s' % final_url, xbmc.LOGINFO)
-                xbmcgui.Dialog().notification("URL feloldás hiba", "URL feloldása sikertelen a %s host-on" % urlparse.urlparse(final_url).hostname)
-        except Exception as e:
-            xbmc.log('NetMozi: ResolveURL resolved URL: %s' % final_url, xbmc.LOGINFO)
-            xbmcgui.Dialog().notification(urlparse.urlparse(url).hostname, str(e))
-            return
-        if direct_url:
+        hmf = resolveurl.HostedMediaFile(final_url, subs=self.downloadsubtitles)
+        subtitles = None
+        if hmf:
+            resp = hmf.resolve()
+            direct_url = resp.get('url')
+            xbmc.log('NetMozi: ResolveURL resolved URL: %s' % direct_url, xbmc.LOGINFO)
+            direct_url = py2_encode(direct_url)
+            if self.downloadsubtitles:
+                subtitles = resp.get('subs')
             play_item = xbmcgui.ListItem(path=direct_url)
             if 'm3u8' in direct_url:
                 from inputstreamhelper import Helper
@@ -269,39 +266,43 @@ class navigator:
                     else:
                         play_item.setProperty('inputstream', 'inputstream.adaptive')  # compatible with recent builds Kodi 19 API
                     play_item.setProperty('inputstream.adaptive.manifest_type', 'hls')
-            if subtitled and self.downloadsubtitles:
-                try:
-                    if not os.path.exists(os.path.join(self.base_path, "subtitles")):
-                        errMsg = "Hiba a felirat könyvtár létrehozásakor!"
-                        os.mkdir(os.path.join(self.base_path, "subtitles"))
-                    for f in os.listdir(os.path.join(self.base_path, "subtitles")):
-                        errMsg = "Hiba a korábbi feliratok törlésekor!"
-                        os.remove(os.path.join(self.base_path, "subtitles", f))
-                    finalsubtitles=[]
-                    content = client.request(final_url)
-                    subtitles = re.findall(r'file2sub\("([^"]*)"[^"]*"([^"]*)"', content)
-                    if subtitles:
-                        xbmc.log('NetMozi: Found subtitle count: %d' % len(subtitles), xbmc.LOGINFO)
+            if self.downloadsubtitles:
+                if subtitles:
+                    try:
+                        if not os.path.exists(os.path.join(self.base_path, "subtitles")):
+                            errMsg = "Hiba a felirat könyvtár létrehozásakor!"
+                            os.mkdir(os.path.join(self.base_path, "subtitles"))
+                        for f in os.listdir(os.path.join(self.base_path, "subtitles")):
+                            errMsg = "Hiba a korábbi feliratok törlésekor!"
+                            os.remove(os.path.join(self.base_path, "subtitles", f))
+                        xbmc.log('NetMozi: subtitle count: %d' % len(subtitles), xbmc.LOGINFO)
+                        finalsubtitles = []
                         errMsg = "Hiba a sorozat felirat letöltésekor!"
                         for sub in subtitles:
-                            subtitle = client.request(sub[0])
+                            subtitle = client.request(subtitles[sub])
                             if len(subtitle) > 0:
                                 errMsg = "Hiba a sorozat felirat file kiírásakor!"
-                                file = safeopen(os.path.join(self.base_path, "subtitles", "%s.srt" % sub[1]), "w")
+                                file = safeopen(os.path.join(self.base_path, "subtitles", "%s.srt" % sub.strip()), "w")
                                 file.write(subtitle)
                                 file.close()
                                 errMsg = "Hiba a sorozat felirat file hozzáadásakor!"
-                                finalsubtitles.append("%s/subtitles/%s.srt" % (self.base_path, sub[1]))
-                    else:
-                        xbmc.log("NetMozi: Subtitles not found in source", xbmc.LOGERROR)
-                    if len(finalsubtitles)>0:
-                        errMsg = "Hiba a feliratok beállításakor!"
-                        play_item.setSubtitles(finalsubtitles)
-                except:
-                    xbmcgui.Dialog().notification("NetMozi hiba", errMsg, xbmcgui.NOTIFICATION_ERROR)
-                    xbmc.log("Hiba a %s URL-hez tartozó felirat letöltésekor, hiba: %s" % (py2_encode(final_url), py2_encode(errMsg)), xbmc.LOGERROR)
+                                finalsubtitles.append("%s/subtitles/%s.srt" % (self.base_path, sub.strip()))
+                            else:
+                                xbmc.log("NetMozi: Subtitles not found in source", xbmc.LOGERROR)
+                        if len(finalsubtitles)>0:
+                            errMsg = "Hiba a feliratok beállításakor!"
+                            play_item.setSubtitles(finalsubtitles)
+                    except:
+                        xbmcgui.Dialog().notification("NetMozi hiba", errMsg, xbmcgui.NOTIFICATION_ERROR)
+                        xbmc.log("Hiba a %s URL-hez tartozó felirat letöltésekor, hiba: %s" % (py2_encode(final_url), py2_encode(errMsg)), xbmc.LOGERROR)
+                else:
+                    xbmc.log("NetMozi: ResolveURL did not find any subtitles", xbmc.LOGINFO)
             xbmc.log('NetMozi: playing URL: %s' % direct_url, xbmc.LOGINFO)
             xbmcplugin.setResolvedUrl(syshandle, True, listitem=play_item)
+
+        else:
+            xbmc.log('NetMozi: ResolveURL could not resolve url: %s' % final_url, xbmc.LOGINFO)
+            xbmcgui.Dialog().notification("URL feloldás hiba", "URL feloldása sikertelen a %s host-on" % urlparse.urlparse(final_url).hostname)
 
     def Login(self):
         if (self.username and self.password) != '':
