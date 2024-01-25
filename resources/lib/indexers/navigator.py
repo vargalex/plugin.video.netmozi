@@ -251,7 +251,10 @@ class navigator:
         subtitles = None
         if hmf:
             resp = hmf.resolve()
-            direct_url = resp.get('url')
+            if self.downloadsubtitles:
+                direct_url = resp.get('url')
+            else:
+                direct_url = resp
             xbmc.log('NetMozi: ResolveURL resolved URL: %s' % direct_url, xbmc.LOGINFO)
             direct_url = py2_encode(direct_url)
             if self.downloadsubtitles:
