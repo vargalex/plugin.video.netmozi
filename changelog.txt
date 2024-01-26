@@ -1,4 +1,7 @@
-﻿[B]1.0.25[/B]
+﻿[B]1.0.26[/B]
+- Bejelentkezés javítása speciális karaktert tartalmazó felhasználó név/jelszó esetén
+
+[B]1.0.25[/B]
 - ResolveURL feloldás bugfix
 
 [B]1.0.24[/B]

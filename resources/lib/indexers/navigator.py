@@ -318,7 +318,7 @@ class navigator:
             if update == False and self.logincookie != "":
                 return
             login_url = '%s/login/do' % base_url
-            login_cookies = client.request(login_url, post="username=%s&password=%s" % (self.username, self.password), output='cookie')
+            login_cookies = client.request(login_url, post="username=%s&password=%s" % (quote_plus(self.username), quote_plus(self.password)), output='cookie')
             if 'ca' in login_cookies:
                 xbmcaddon.Addon().setSetting('logintimestamp', str(t2))
                 xbmcaddon.Addon().setSetting('logincookie', base64.b64encode(login_cookies.encode('ascii')))
