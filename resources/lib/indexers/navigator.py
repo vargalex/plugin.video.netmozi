@@ -233,7 +233,7 @@ class navigator:
             else:
                 data = re.search(r'<iframe[^>]*src=[\'"]([^\'"]+)[\'"]', url_content, re.IGNORECASE)
                 if data:
-                    final_url = data[1]
+                    final_url = data.group(1)
                 else:
                     xbmc.log('NetMozi: cannot find <iframe[^>]*src="([^"]+)" in %s' % final_url)
         xbmc.log('NetMozi: final_url: %s' % final_url, xbmc.LOGINFO)
