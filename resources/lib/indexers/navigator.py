@@ -196,7 +196,9 @@ class navigator:
             else:
                 serieInfo=''
             url_content = client.request(movieURL)
-            table = client.parseDOM(url_content, 'table', attrs={'class': 'table table-responsive'})
+            card = client.parseDOM(url_content, 'div', attrs={'class': 'card .+?'})[0]
+            tableDiv = client.parseDOM(card, 'div', attrs={'class': 'table-responsive'})[0]
+            table = client.parseDOM(tableDiv, 'table', attrs={'class': 'table'})
             if table:
                 rows = client.parseDOM(table, 'tr')
                 sourceCnt = 0
