@@ -19,7 +19,7 @@
 '''
 import os,sys,re,xbmc,xbmcgui,xbmcplugin,xbmcaddon, time, locale, base64
 import resolveurl
-from resources.lib.modules import client, control
+from resources.lib.modules import client, control, cache
 from resources.lib.modules.utils import py2_encode, py2_decode, safeopen
 
 if sys.version_info[0] == 3:
@@ -77,7 +77,7 @@ class navigator:
         self.endDirectory()
 
     def getOrderTypes(self, tipus):
-        url_content = client.request(base_url)
+        url_content = client.request(base_url, cookie=cache.get(self.getSiteCookies, 24*365))
         select = client.parseDOM(url_content, 'select', attrs={'id': 'order_by_select'})[0]
         matches=re.findall(r'<option value="([0-9])"(.*)>(.*)</option>', select)
         for match in matches:
@@ -110,7 +110,7 @@ class navigator:
     def getMovies(self, tipus, page, order, search):
         if search == None:
             search = ''
-        url_content = client.request('%s?page=%s&type=%s&order=%s&search=%s' % (base_url, page, tipus, order, quote_plus(search)))
+        url_content = client.request('%s?page=%s&type=%s&order=%s&search=%s' % (base_url, page, tipus, order, quote_plus(search)), cookie=cache.get(self.getSiteCookies, 24*365))
         movies = client.parseDOM(url_content, 'div', attrs={'class': 'col-sm-4 col_main'})
         if len(movies)>0:
             for movie in movies:
@@ -141,7 +141,7 @@ class navigator:
 
     def getSeries(self, url):
         self.Login()
-        url_content = client.request('%s%s' %(base_url, url), cookie=self.logincookie)
+        url_content = client.request('%s%s' %(base_url, url), cookie="%s; %s" % (self.logincookie, cache.get(self.getSiteCookies, 24*365)))
         container = client.parseDOM(url_content, 'div', attrs={'class': 'container'})[0]
         temp = client.parseDOM(container, 'h3')[0]
         title = py2_encode(client.replaceHTMLCodes(client.parseDOM(temp, 'a')[0])).strip()        
@@ -157,9 +157,9 @@ class navigator:
         self.endDirectory(type="movies")
 
     def getEpisodes(self, url, serie):
-        url_content = client.request(url)
+        url_content = client.request(url, cookie=cache.get(self.getSiteCookies, 24*365))
         self.Login()
-        url_content = client.request('%s%s' %(base_url, url), cookie=self.logincookie)
+        url_content = client.request('%s%s' %(base_url, url), cookie="%s; %s" % (self.logincookie, cache.get(self.getSiteCookies, 24*365)))
         container = client.parseDOM(url_content, 'div', attrs={'class': 'container'})[0]
         temp = client.parseDOM(container, 'h3')[0]
         title = py2_encode(client.replaceHTMLCodes(client.parseDOM(temp, 'a')[0])).strip()        
@@ -176,7 +176,7 @@ class navigator:
 
     def getMovie(self, url):
         self.Login()
-        url_content = client.request('%s%s' %(base_url, url), cookie=self.logincookie)
+        url_content = client.request('%s%s' %(base_url, url), cookie="%s; %s" % (self.logincookie, cache.get(self.getSiteCookies, 24*365)))
         if "regeljbe.png" in url_content:
             xbmcgui.Dialog().ok('NetMozi', 'Lista lekérés sikertelen. A hozzáféréshez regisztráció szükséges.')
             xbmcplugin.setResolvedUrl(int(sys.argv[1]), False, xbmcgui.ListItem())
@@ -226,7 +226,7 @@ class navigator:
     def playmovie(self, url, subtitled):
         self.Login()
         xbmc.log('NetMozi: Try to play from URL: %s' % url, xbmc.LOGINFO)
-        final_url = client.request(url, cookie=self.logincookie, output="geturl")
+        final_url = client.request(url, cookie="%s; %s" % (self.logincookie, cache.get(self.getSiteCookies, 24*365)), output="geturl")
         if "mindjart.megnezed" in final_url:
             url_content = client.request(final_url)
             matches = re.search(r'^(.*)function counter(.*)var link([^=]*)=([^"]*)"([^"]*)";(.*)$', url_content, re.S)
@@ -367,3 +367,9 @@ class navigator:
             search_text = keyb.getText()
 
         return search_text
+
+    def getSiteCookies(self):
+        return client.request(base_url, output="cookie")
+
+    def clearCache(self):
+        cache.clear()

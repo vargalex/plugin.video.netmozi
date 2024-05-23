@@ -1,4 +1,7 @@
 ﻿[B]1.0.29[/B]
+- Site cookie használata
+
+[B]1.0.29[/B]
 - Omega inputstream adaptive header fix
 
 [B]1.0.28[/B]

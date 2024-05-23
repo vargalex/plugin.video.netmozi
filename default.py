@@ -76,3 +76,6 @@ elif action == 'newsearch':
 
 elif action == 'deletesearchhistory':
     navigator.navigator().deleteSearchHistory()
+
+elif action == 'clearcache':
+    navigator.navigator().clearCache()
