@@ -115,21 +115,39 @@ class navigator:
         if len(movies)>0:
             for movie in movies:
                 tempTitle = client.parseDOM(movie, 'div', attrs={'class': 'col_name'})[0]
-                title = py2_encode(client.replaceHTMLCodes(tempTitle)).replace('<small>(sorozat)</small>', '')
+                title = py2_encode(client.replaceHTMLCodes(tempTitle)).replace('<small>(sorozat)</small>', '').strip()
                 isSorozat = "(sorozat)" in tempTitle
                 sorozatLabel = ''
                 if isSorozat and tipus != "2":
                     sorozatLabel = ' [COLOR yellow][I]sorozat[/I][/COLOR]'
                 url = client.parseDOM(movie, 'a', attrs={'class': 'col_a'}, ret='href')[0]
-                thumbDiv = client.parseDOM(movie, 'div', attrs={'class': 'col-sm-6'})[0]
-                thumb = 'https:'+client.parseDOM(thumbDiv, 'img', ret='src')[0]
-                infoDiv = client.parseDOM(movie, 'div', attrs={'class': 'col-sm-6'})[1]
-                infoRows = client.parseDOM(infoDiv, 'div', attrs={'class': 'row'})
-                year = re.sub('<.*>', '', py2_encode(client.replaceHTMLCodes(infoRows[0]))).strip()
-                duration = int(re.sub('<.*>', '', py2_encode(client.replaceHTMLCodes(infoRows[1]))).strip().replace(' perc',''))*60
-                linkcount = re.sub('<.*>', '', py2_encode(client.replaceHTMLCodes(infoRows[2]))).strip().replace('db', '')
+                try:
+                    thumbDiv = client.parseDOM(movie, 'div', attrs={'class': 'col-sm-6'})[0]
+                    thumb = 'https:'+client.parseDOM(thumbDiv, 'img', ret='src')[0]
+                except:
+                    thumb = None
+                try:
+                    infoDiv = client.parseDOM(movie, 'div', attrs={'class': 'col-sm-6'})[1]
+                except:
+                    infoDiv = None
+                try:
+                    infoRows = client.parseDOM(infoDiv, 'div', attrs={'class': 'row'})
+                except:
+                    infoRows = None
+                try:
+                    year = "(%s)" % re.sub('<.*>', '', py2_encode(client.replaceHTMLCodes(infoRows[0]))).strip()
+                except:
+                    year = ""
+                try:
+                    duration = int(re.sub('<.*>', '', py2_encode(client.replaceHTMLCodes(infoRows[1]))).strip().replace(' perc',''))*60
+                except:
+                    duration = 0
+                try:
+                    linkcount = " | [COLOR limegreen]%s link[/COLOR]" % re.sub('<.*>', '', py2_encode(client.replaceHTMLCodes(infoRows[2]))).strip().replace('db', '')
+                except:
+                    linkcount = ""
                 action='series' if isSorozat else 'movie'
-                self.addDirectoryItem('%s (%s)%s | [COLOR limegreen]%s link[/COLOR]' %(title, year, sorozatLabel, linkcount), '%s&url=%s' % (action, url), thumb, 'DefaultMovies.png' if isSorozat else 'DefaultTVShows.png', meta={'title': title, 'duration': duration, 'fanart': thumb})
+                self.addDirectoryItem('%s %s%s%s' % (title, year, sorozatLabel, linkcount), '%s&url=%s' % (action, url), thumb, 'DefaultMovies.png' if isSorozat else 'DefaultTVShows.png', meta={'title': title, 'duration': duration, 'fanart': thumb})
             pager = client.parseDOM(url_content, 'select', attrs={'name': 'page'})[0]
             options = client.parseDOM(pager, 'option', ret='value')
             if (int(options[-1]) > int(page)):

@@ -1,4 +1,7 @@
-﻿[B]1.0.29[/B]
+﻿[B]1.0.31[/B]
+- Kitöltetlen adatok kezelése
+
+[B]1.0.30[/B]
 - Site cookie használata
 
 [B]1.0.29[/B]
