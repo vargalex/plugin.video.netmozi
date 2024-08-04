@@ -1,4 +1,7 @@
 ﻿[B]1.0.32[/B]
+- Lemaradt módosított file
+
+[B]1.0.32[/B]
 - Login cookie-k használata
 
 [B]1.0.31[/B]
