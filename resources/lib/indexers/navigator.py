@@ -19,8 +19,10 @@
 '''
 import os,sys,re,xbmc,xbmcgui,xbmcplugin,xbmcaddon, time, locale, base64
 import resolveurl
+from resolveurl.resolver import ResolverError
 from resources.lib.modules import client, control, cache
 from resources.lib.modules.utils import py2_encode, py2_decode, safeopen
+from resources.lib.modules.netmoziExceptions import InvalidLogonException
 
 if sys.version_info[0] == 3:
     import urllib.parse as urlparse
@@ -46,7 +48,6 @@ class navigator:
         self.username = xbmcaddon.Addon().getSetting('username')
         self.password = xbmcaddon.Addon().getSetting('password')
         self.downloadsubtitles = xbmcaddon.Addon().getSettingBool('downloadsubtitles')
-        self.logincookie = base64.b64decode(xbmcaddon.Addon().getSetting('logincookie')).decode('utf-8')
         self.base_path = py2_decode(control.transPath(control.addonInfo('profile')))
         self.searchFileName = os.path.join(self.base_path, "search.history")
 
@@ -57,7 +58,7 @@ class navigator:
         self.endDirectory()
 
     def getSearches(self):
-        self.addDirectoryItem('Új keresés', 'newsearch', '', 'DefaultFolder.png')
+        self.addDirectoryItem('[COLOR lightgreen]Új keresés[/COLOR]', 'newsearch', '', 'DefaultFolder.png')
         try:
             file = open(self.searchFileName, "r")
             olditems = file.read().splitlines()
@@ -71,13 +72,13 @@ class navigator:
             for item in items:
                 self.addDirectoryItem(item, 'movies&page=1&type=&order=1&search=%s' % (quote_plus(item)), '', 'DefaultFolder.png')
             if len(items) > 0:
-                self.addDirectoryItem('Keresési előzmények törlése', 'deletesearchhistory', '', 'DefaultFolder.png')
+                self.addDirectoryItem('[COLOR red]Keresési előzmények törlése[/COLOR]', 'deletesearchhistory', '', 'DefaultFolder.png')
         except:
             pass   
         self.endDirectory()
 
     def getOrderTypes(self, tipus):
-        url_content = client.request(base_url, cookie=cache.get(self.getSiteCookies, 24*365))
+        url_content = client.request(base_url, cookie=self.getSiteCookies())
         select = client.parseDOM(url_content, 'select', attrs={'id': 'order_by_select'})[0]
         matches=re.findall(r'<option value="([0-9])"(.*)>(.*)</option>', select)
         for match in matches:
@@ -110,7 +111,7 @@ class navigator:
     def getMovies(self, tipus, page, order, search):
         if search == None:
             search = ''
-        url_content = client.request('%s?page=%s&type=%s&order=%s&search=%s' % (base_url, page, tipus, order, quote_plus(search)), cookie=cache.get(self.getSiteCookies, 24*365))
+        url_content = client.request('%s?page=%s&type=%s&order=%s&search=%s' % (base_url, page, tipus, order, quote_plus(search)), cookie=self.getSiteCookies())
         movies = client.parseDOM(url_content, 'div', attrs={'class': 'col-sm-4 col_main'})
         if len(movies)>0:
             for movie in movies:
@@ -158,8 +159,7 @@ class navigator:
             xbmcplugin.setResolvedUrl(int(sys.argv[1]), False, xbmcgui.ListItem())
 
     def getSeries(self, url):
-        self.Login()
-        url_content = client.request('%s%s' %(base_url, url), cookie="%s; %s" % (self.logincookie, cache.get(self.getSiteCookies, 24*365)))
+        url_content = client.request('%s%s' %(base_url, url), cookie=self.getSiteCookies())
         container = client.parseDOM(url_content, 'div', attrs={'class': 'container'})[0]
         temp = client.parseDOM(container, 'h3')[0]
         title = py2_encode(client.replaceHTMLCodes(client.parseDOM(temp, 'a')[0])).strip()        
@@ -175,9 +175,7 @@ class navigator:
         self.endDirectory(type="movies")
 
     def getEpisodes(self, url, serie):
-        url_content = client.request(url, cookie=cache.get(self.getSiteCookies, 24*365))
-        self.Login()
-        url_content = client.request('%s%s' %(base_url, url), cookie="%s; %s" % (self.logincookie, cache.get(self.getSiteCookies, 24*365)))
+        url_content = client.request('%s%s' %(base_url, url), cookie=self.getSiteCookies())
         container = client.parseDOM(url_content, 'div', attrs={'class': 'container'})[0]
         temp = client.parseDOM(container, 'h3')[0]
         title = py2_encode(client.replaceHTMLCodes(client.parseDOM(temp, 'a')[0])).strip()        
@@ -193,8 +191,7 @@ class navigator:
         self.endDirectory(type="movies")
 
     def getMovie(self, url):
-        self.Login()
-        url_content = client.request('%s%s' %(base_url, url), cookie="%s; %s" % (self.logincookie, cache.get(self.getSiteCookies, 24*365)))
+        url_content = client.request('%s%s' %(base_url, url), cookie=self.getSiteCookies())
         if "regeljbe.png" in url_content:
             xbmcgui.Dialog().ok('NetMozi', 'Lista lekérés sikertelen. A hozzáféréshez regisztráció szükséges.')
             xbmcplugin.setResolvedUrl(int(sys.argv[1]), False, xbmcgui.ListItem())
@@ -242,20 +239,23 @@ class navigator:
         self.endDirectory(type="movies")
 
     def playmovie(self, url, subtitled):
-        self.Login()
         xbmc.log('NetMozi: Try to play from URL: %s' % url, xbmc.LOGINFO)
-        final_url = client.request(url, cookie="%s; %s" % (self.logincookie, cache.get(self.getSiteCookies, 24*365)), output="geturl")
-        if "mindjart.megnezed" in final_url:
-            url_content = client.request(final_url)
-            matches = re.search(r'^(.*)function counter(.*)var link([^=]*)=([^"]*)"([^"]*)";(.*)$', url_content, re.S)
-            if matches:
-                final_url = base64.b64decode(matches.group(5)).decode('utf-8')
-            else:
-                data = re.search(r'<iframe[^>]*src=[\'"]([^\'"]+)[\'"]', url_content, re.IGNORECASE)
-                if data:
-                    final_url = data.group(1)
+        final_url = client.request(url, cookie=self.getSiteCookies(), output="geturl")
+        if final_url:
+            if "mindjart.megnezed" in final_url:
+                url_content = client.request(final_url)
+                matches = re.search(r'^(.*)function counter(.*)var link([^=]*)=([^"]*)"([^"]*)";(.*)$', url_content, re.S)
+                if matches:
+                    final_url = base64.b64decode(matches.group(5)).decode('utf-8')
                 else:
-                    xbmc.log('NetMozi: cannot find <iframe[^>]*src="([^"]+)" in %s' % final_url)
+                    data = re.search(r'<iframe[^>]*src=[\'"]([^\'"]+)[\'"]', url_content, re.IGNORECASE)
+                    if data:
+                        final_url = data.group(1)
+                    else:
+                        xbmc.log('NetMozi: cannot find <iframe[^>]*src="([^"]+)" in %s' % final_url)
+        else:
+            xbmcgui.Dialog().ok('NetMozi', 'Törölt tartalom!')
+            return
         xbmc.log('NetMozi: final_url: %s' % final_url, xbmc.LOGINFO)
         if "streamplay" in final_url or "sbot" in final_url:
             html = client.request(final_url)
@@ -270,7 +270,11 @@ class navigator:
         hmf = resolveurl.HostedMediaFile(final_url, subs=self.downloadsubtitles)
         subtitles = None
         if hmf:
-            resp = hmf.resolve()
+            try:
+                resp = hmf.resolve()
+            except:
+                xbmcgui.Dialog().ok("NetMozi", "ResolveURL hiba: Forrás feloldása sikertelen!")
+                return
             if self.downloadsubtitles:
                 direct_url = resp.get('url')
             else:
@@ -332,29 +336,6 @@ class navigator:
             xbmc.log('NetMozi: ResolveURL could not resolve url: %s' % final_url, xbmc.LOGINFO)
             xbmcgui.Dialog().notification("URL feloldás hiba", "URL feloldása sikertelen a %s host-on" % urlparse.urlparse(final_url).hostname)
 
-    def Login(self):
-        if (self.username and self.password) != '':
-            try:
-                t1 = int(xbmcaddon.Addon().getSetting('logintimestamp'))
-            except:
-                t1 = 0
-            t2 = int(time.time())
-            update = (abs(t2 - t1) / 3600) >= 24 or t1 == 0
-            if update == False and self.logincookie != "":
-                return
-            login_url = '%s/login/do' % base_url
-            login_cookies = client.request(login_url, post="username=%s&password=%s" % (quote_plus(self.username), quote_plus(self.password)), output='cookie')
-            if 'ca' in login_cookies:
-                xbmcaddon.Addon().setSetting('logintimestamp', str(t2))
-                xbmcaddon.Addon().setSetting('logincookie', base64.b64encode(login_cookies.encode('ascii')))
-                self.logincookie=login_cookies
-            else:
-                xbmcgui.Dialog().ok(u'NetMozi', u'Bejelentkez\u00E9si hiba!')
-                xbmcaddon.Addon().setSetting('logintimestamp', '0')
-                xbmcaddon.Addon().setSetting('logincookie', '')
-                self.logincookie = ""
-        return
-
     def addDirectoryItem(self, name, query, thumb, icon, context=None, queue=False, isAction=True, isFolder=True, Fanart=None, meta=None):
         url = '%s?action=%s' % (sysaddon, query) if isAction == True else query
         if thumb == '': thumb = icon
@@ -386,8 +367,27 @@ class navigator:
 
         return search_text
 
-    def getSiteCookies(self):
+    def getCookiesWithoutLogin(Self):
         return client.request(base_url, output="cookie")
+
+    def getCookiesWithLogin(self):
+        login_url = '%s/login/do' % base_url
+        login_cookies = client.request(login_url, post="username=%s&password=%s" % (quote_plus(self.username), quote_plus(self.password)), output='cookie')
+        if 'ca' in login_cookies:
+            return login_cookies
+        else:
+            raise InvalidLogonException
+        return
+
+    def getSiteCookies(self):
+        if (self.username and self.password) != '':
+            try:
+                return cache.get(self.getCookiesWithLogin, 24)
+            except InvalidLogonException:
+                xbmcgui.Dialog().ok(u'NetMozi', u'Bejelentkez\u00E9si hiba! Érvénytelen felhasználó név/jelszó?')
+                return None
+        else:
+            return cache.get(self.getCookiesWithoutLogin, 24*365)
 
     def clearCache(self):
         cache.clear()
