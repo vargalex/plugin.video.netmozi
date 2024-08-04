@@ -1,4 +1,7 @@
-﻿[B]1.0.31[/B]
+﻿[B]1.0.32[/B]
+- Login cookie-k használata
+
+[B]1.0.31[/B]
 - Kitöltetlen adatok kezelése
 
 [B]1.0.30[/B]
