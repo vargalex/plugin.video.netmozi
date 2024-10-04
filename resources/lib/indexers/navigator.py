@@ -22,7 +22,6 @@ import resolveurl
 from resolveurl.resolver import ResolverError
 from resources.lib.modules import client, control, cache
 from resources.lib.modules.utils import py2_encode, py2_decode, safeopen
-from resources.lib.modules.netmoziExceptions import InvalidLogonException
 
 if sys.version_info[0] == 3:
     import urllib.parse as urlparse
@@ -295,6 +294,7 @@ class navigator:
                     try:
                         play_item.setProperty('inputstream.adaptive.stream_headers', direct_url.split("|")[1])
                         play_item.setProperty('inputstream.adaptive.manifest_headers', direct_url.split("|")[1])
+                        play_item.setProperty('inputstream.adaptive.license_key', '|%s' % direct_url.split("|")[1])
                     except:
                         pass
                     play_item.setProperty('inputstream.adaptive.manifest_type', 'hls')
@@ -373,19 +373,16 @@ class navigator:
     def getCookiesWithLogin(self):
         login_url = '%s/login/do' % base_url
         login_cookies = client.request(login_url, post="username=%s&password=%s" % (quote_plus(self.username), quote_plus(self.password)), output='cookie')
-        if 'ca' in login_cookies:
+        if 'ca=' in login_cookies:
             return login_cookies
         else:
-            raise InvalidLogonException
+            xbmcgui.Dialog().ok(u'NetMozi', u'Bejelentkez\u00E9si hiba! Érvénytelen felhasználó név/jelszó?')
+            return None
         return
 
     def getSiteCookies(self):
         if (self.username and self.password) != '':
-            try:
-                return cache.get(self.getCookiesWithLogin, 24)
-            except InvalidLogonException:
-                xbmcgui.Dialog().ok(u'NetMozi', u'Bejelentkez\u00E9si hiba! Érvénytelen felhasználó név/jelszó?')
-                return None
+            return cache.get(self.getCookiesWithLogin, 24)
         else:
             return cache.get(self.getCookiesWithoutLogin, 24*365)
 
