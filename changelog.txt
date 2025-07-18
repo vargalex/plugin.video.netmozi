@@ -1,4 +1,7 @@
-﻿[B]1.0.35[/B]
+﻿[B]1.0.37[/B]
+- Visszaállás a korábbi verzióra
+
+[B]1.0.35[/B]
 - License key header-ek beállítása ISA esetén
 
 [B]1.0.34[/B]
