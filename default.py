@@ -19,7 +19,7 @@
 '''
 
 
-import sys, xbmcgui
+import sys
 from resources.lib.indexers import navigator
 
 if sys.version_info[0] == 3:

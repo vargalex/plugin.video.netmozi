@@ -1,4 +1,7 @@
-﻿[B]1.0.37[/B]
+﻿[B]1.0.38[/B]
+- Forrás változás követése
+
+[B]1.0.37[/B]
 - Visszaállás a korábbi verzióra
 
 [B]1.0.35[/B]

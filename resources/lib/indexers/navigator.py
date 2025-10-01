@@ -17,9 +17,8 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 '''
-import os,sys,re,xbmc,xbmcgui,xbmcplugin,xbmcaddon, time, locale, base64
+import os,sys,re,xbmc,xbmcgui,xbmcplugin,xbmcaddon, locale, base64, random, string, json
 import resolveurl
-from resolveurl.resolver import ResolverError
 from resources.lib.modules import client, control, cache
 from resources.lib.modules.utils import py2_encode, py2_decode, safeopen
 
@@ -34,8 +33,19 @@ sysaddon = sys.argv[0] ; syshandle = int(sys.argv[1])
 addonFanart = xbmcaddon.Addon().getAddonInfo('fanart')
 
 base_url = 'https://netmozi.com/'
+track_url = '%s/visitortracker/track' % base_url
 
 class navigator:
+
+    def generate_random_string(self, length):
+        return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
+
+    def generate_visitorId(self):
+        return self.generate_random_string(18)
+
+    def generate_fingerprint(self):
+        return self.generate_random_string(65)
+
     def __init__(self):
         try:
             locale.setlocale(locale.LC_ALL, "hu_HU.UTF-8")
@@ -49,6 +59,8 @@ class navigator:
         self.downloadsubtitles = xbmcaddon.Addon().getSettingBool('downloadsubtitles')
         self.base_path = py2_decode(control.transPath(control.addonInfo('profile')))
         self.searchFileName = os.path.join(self.base_path, "search.history")
+        self.visitorId = cache.get(self.generate_visitorId, 24)
+        self.fingerprint = cache.get(self.generate_fingerprint, 24)
 
     def root(self):
         menuItems = {'base&type=1': 'Filmek', 'base&type=2': 'Sorozatok', 'search': 'Keresés'}
@@ -190,7 +202,12 @@ class navigator:
         self.endDirectory(type="movies")
 
     def getMovie(self, url):
-        url_content = client.request('%s%s' %(base_url, url), cookie=self.getSiteCookies())
+        trackingData = json.loads(client.request(track_url, post='{"visitor_id": "%s", "fingerprint": "%s"}' % (self.visitorId, self.fingerprint)))
+        if trackingData["status"] != "ok":
+            xbmcgui.Dialog().ok('NetMozi', 'Hiba a tracking adatok lekérésekor!')
+            xbmcplugin.setResolvedUrl(int(sys.argv[1]), False, xbmcgui.ListItem())
+            return
+        url_content = client.request('%s%s' %(base_url, url), cookie="%s; _vt_track=%s;" % (self.getSiteCookies(), trackingData["visitor_id"]))
         if "regeljbe.png" in url_content:
             xbmcgui.Dialog().ok('NetMozi', 'Lista lekérés sikertelen. A hozzáféréshez regisztráció szükséges.')
             xbmcplugin.setResolvedUrl(int(sys.argv[1]), False, xbmcgui.ListItem())
@@ -331,7 +348,6 @@ class navigator:
                     xbmc.log("NetMozi: ResolveURL did not find any subtitles", xbmc.LOGINFO)
             xbmc.log('NetMozi: playing URL: %s' % direct_url, xbmc.LOGINFO)
             xbmcplugin.setResolvedUrl(syshandle, True, listitem=play_item)
-
         else:
             xbmc.log('NetMozi: ResolveURL could not resolve url: %s' % final_url, xbmc.LOGINFO)
             xbmcgui.Dialog().notification("URL feloldás hiba", "URL feloldása sikertelen a %s host-on" % urlparse.urlparse(final_url).hostname)
