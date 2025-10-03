@@ -248,9 +248,9 @@ class navigator:
                     if 'red_mark.png' in cols[1]:
                         valid = '| [COLOR red]Érvénytelen[/COLOR]'
                     mURL = urlparse.urlsplit(movieURL)
-                    url=urlparse.urljoin('%s://%s' % (mURL.scheme, mURL.netloc),py2_encode(client.parseDOM(cols[3], 'a', attrs={'class': 'btn btn-outline-primary btn-sm'}, ret='href')[-1]))
-                    quality=py2_encode(cols[4])
-                    site=py2_encode(cols[5])
+                    url=urlparse.urljoin('%s://%s' % (mURL.scheme, mURL.netloc),py2_encode(client.parseDOM(cols[3], 'a', attrs={'class': 'btn btn-outline-primary btn-sm action-btn'}, ret='href')[-1]))
+                    quality=py2_encode(cols[4].strip())
+                    site=py2_encode(cols[5].strip())
                     self.addDirectoryItem('%s | [B]%s[/B] | [COLOR limegreen]%s[/COLOR] | [COLOR blue]%s[/COLOR] %s' % (format(sourceCnt, '02'), site, nyelv, quality, valid), 'playmovie&url=%s&subtitled=%s' % (url, 'true' if nyelv == 'Felirat' else 'false'), thumb, 'DefaultMovies.png', isFolder=False, meta={'title': title + serieInfo, 'plot': plot, 'duration': duration, 'fanart': thumb})
         self.endDirectory(type="movies")
 
