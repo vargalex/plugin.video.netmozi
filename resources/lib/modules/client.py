@@ -70,8 +70,9 @@ def request(url, close=True, error=False, proxy=None, post=None, headers=None, m
 
         try:
             response = urllib2.urlopen(request, timeout=int(timeout))
-        except HTTPError as response:
+        except HTTPError as e:
             if error == False: return
+            response = e
 
         if output == 'cookie':
             result = []

@@ -259,7 +259,7 @@ class navigator:
 
     def playmovie(self, url, subtitled):
         xbmc.log('NetMozi: Try to play from URL: %s' % url, xbmc.LOGINFO)
-        final_url = client.request(url, cookie=self.getSiteCookies(), output="geturl")
+        final_url = client.request(url, cookie=self.getSiteCookies(), output="geturl", error=True)
         if final_url:
             if "mindjart.megnezed" in final_url:
                 url_content = client.request(final_url)
