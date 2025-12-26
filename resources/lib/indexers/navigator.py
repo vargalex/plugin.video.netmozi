@@ -123,10 +123,10 @@ class navigator:
         if search == None:
             search = ''
         url_content = client.request('%s?page=%s&type=%s&order=%s&search=%s' % (base_url, page, tipus, order, quote_plus(search)), cookie=self.getSiteCookies())
-        movies = client.parseDOM(url_content, 'div', attrs={'class': 'col-sm-4 col_main'})
+        movies = client.parseDOM(url_content, 'div', attrs={'class': 'movie-card'})
         if len(movies)>0:
             for movie in movies:
-                tempTitle = client.parseDOM(movie, 'div', attrs={'class': 'col_name'})[0]
+                tempTitle = client.parseDOM(movie, 'h3', attrs={'class': 'movie-title'})[0]
                 title = py2_encode(client.replaceHTMLCodes(tempTitle)).replace('<small>(sorozat)</small>', '').strip()
                 isSorozat = "(sorozat)" in tempTitle
                 sorozatLabel = ''
@@ -134,28 +134,30 @@ class navigator:
                     sorozatLabel = ' [COLOR yellow][I]sorozat[/I][/COLOR]'
                 url = client.parseDOM(movie, 'a', attrs={'class': 'col_a'}, ret='href')[0]
                 try:
-                    thumbDiv = client.parseDOM(movie, 'div', attrs={'class': 'col-sm-6'})[0]
-                    thumb = 'https:'+client.parseDOM(thumbDiv, 'img', ret='src')[0]
+                    thumbDiv = client.parseDOM(movie, 'div', attrs={'class': 'cover-ratio'})[0]
+                    thumb = re.search(r'.*<img.*src="(.*?)".*', thumbDiv).group(1)
+                    if thumb.startswith("//"):
+                        thumb = "https:%s" % thumb
                 except:
                     thumb = None
                 try:
-                    infoDiv = client.parseDOM(movie, 'div', attrs={'class': 'col-sm-6'})[1]
+                    infoDiv = client.parseDOM(movie, 'div', attrs={'class': 'meta'})[0]
                 except:
                     infoDiv = None
                 try:
-                    infoRows = client.parseDOM(infoDiv, 'div', attrs={'class': 'row'})
+                    infoRows = client.parseDOM(infoDiv, 'div', attrs={'class': 'meta-row'})
                 except:
                     infoRows = None
                 try:
-                    year = "(%s)" % re.sub('<.*>', '', py2_encode(client.replaceHTMLCodes(infoRows[0]))).strip()
+                    year = "(%s)" % client.parseDOM(infoRows[0], 'div', attrs={'class': 'meta-val'})[0]
                 except:
                     year = ""
                 try:
-                    duration = int(re.sub('<.*>', '', py2_encode(client.replaceHTMLCodes(infoRows[1]))).strip().replace(' perc',''))*60
+                    duration = int(client.parseDOM(infoRows[1], 'div', attrs={'class': 'meta-val'})[0].strip().replace(' perc',''))*60
                 except:
                     duration = 0
                 try:
-                    linkcount = " | [COLOR limegreen]%s link[/COLOR]" % re.sub('<.*>', '', py2_encode(client.replaceHTMLCodes(infoRows[2]))).strip().replace('db', '')
+                    linkcount = " | [COLOR limegreen]%s link[/COLOR]" % client.parseDOM(infoRows[2], 'div', attrs={'class': 'meta-val'})[0]
                 except:
                     linkcount = ""
                 action='series' if isSorozat else 'movie'
