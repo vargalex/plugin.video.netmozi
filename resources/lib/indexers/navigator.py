@@ -123,7 +123,7 @@ class navigator:
         if search == None:
             search = ''
         url_content = client.request('%s?page=%s&type=%s&order=%s&search=%s' % (base_url, page, tipus, order, quote_plus(search)), cookie=self.getSiteCookies())
-        movies = client.parseDOM(url_content, 'div', attrs={'class': 'col-sm-4 col_main'})
+        movies = client.parseDOM(url_content, 'div', attrs={'class': 'col-12.*?'})
         if len(movies)>0:
             for movie in movies:
                 tempTitle = client.parseDOM(movie, 'div', attrs={'class': 'col_name'})[0]
@@ -135,7 +135,9 @@ class navigator:
                 url = client.parseDOM(movie, 'a', attrs={'class': 'col_a'}, ret='href')[0]
                 try:
                     thumbDiv = client.parseDOM(movie, 'div', attrs={'class': 'col-sm-6'})[0]
-                    thumb = 'https:'+client.parseDOM(thumbDiv, 'img', ret='src')[0]
+                    thumb = client.parseDOM(thumbDiv, 'img', ret='src')[0]
+                    if thumb.startswith("//"):
+                        thumb = "https:%s" % thumb
                 except:
                     thumb = None
                 try:
