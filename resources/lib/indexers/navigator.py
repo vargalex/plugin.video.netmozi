@@ -33,7 +33,7 @@ sysaddon = sys.argv[0] ; syshandle = int(sys.argv[1])
 addonFanart = xbmcaddon.Addon().getAddonInfo('fanart')
 
 base_url = 'https://netmozi.com/'
-track_url = '%s/visitortracker/track' % base_url
+#track_url = '%s/visitortracker/track' % base_url
 
 class navigator:
 
@@ -204,15 +204,15 @@ class navigator:
         self.endDirectory(type="movies")
 
     def getMovie(self, url):
-        try:
-            trackingData = json.loads(client.request(track_url, post='{"visitor_id": "%s", "fingerprint": "%s"}' % (self.visitorId, self.fingerprint)))
-            if trackingData["status"] != "ok":
-                xbmcgui.Dialog().ok('NetMozi', 'Hiba a tracking adatok lekérésekor!')
-                xbmcplugin.setResolvedUrl(int(sys.argv[1]), False, xbmcgui.ListItem())
-                return
-            url_content = client.request('%s%s' %(base_url, url), cookie="%s; _vt_track=%s;" % (self.getSiteCookies(), trackingData["visitor_id"]))
-        except:
-            url_content = client.request('%s%s' %(base_url, url), cookie="%s;" % (self.getSiteCookies()))
+        # try:
+        #     trackingData = json.loads(client.request(track_url, post='{"visitor_id": "%s", "fingerprint": "%s"}' % (self.visitorId, self.fingerprint)))
+        #     if trackingData["status"] != "ok":
+        #         xbmcgui.Dialog().ok('NetMozi', 'Hiba a tracking adatok lekérésekor!')
+        #         xbmcplugin.setResolvedUrl(int(sys.argv[1]), False, xbmcgui.ListItem())
+        #         return
+        #     url_content = client.request('%s%s' %(base_url, url), cookie="%s; _vt_track=%s;" % (self.getSiteCookies(), trackingData["visitor_id"]))
+        # except:
+        url_content = client.request('%s%s' %(base_url, url), cookie="%s;" % (self.getSiteCookies()))
         if "regeljbe.png" in url_content:
             xbmcgui.Dialog().ok('NetMozi', 'Lista lekérés sikertelen. A hozzáféréshez regisztráció szükséges.')
             xbmcplugin.setResolvedUrl(int(sys.argv[1]), False, xbmcgui.ListItem())

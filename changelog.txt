@@ -1,4 +1,7 @@
-﻿[B]1.0.43[/B]
+﻿[B]1.0.44[/B]
+- Tracking kivezetése
+
+[B]1.0.43[/B]
 - Forrás változás követése
 
 [B]1.0.42[/B]
