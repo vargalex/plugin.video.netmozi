@@ -118,14 +118,28 @@ class navigator:
             if searchStr in py2_encode(divs[0]):
                 result=py2_encode(divs[1]).strip()
         return result
+    
 
     def getMovies(self, tipus, page, order, search):
+
+        def getInfoData(infoRows, sample, regex, retIndex, defaultValue):
+            if infoRows:
+                for row in infoRows:
+                    if sample in row:
+                        m = re.search(r"%s" % regex, row)
+                        if m:
+                            return m.group(retIndex)
+            return defaultValue
+
         if search == None:
             search = ''
         url_content = client.request('%s?page=%s&type=%s&order=%s&search=%s' % (base_url, page, tipus, order, quote_plus(search)), cookie=self.getSiteCookies())
         movies = client.parseDOM(url_content, 'div', attrs={'class': 'col-12.*?'})
         if len(movies)>0:
             for movie in movies:
+                m = re.search(r'(.*?)(title="[^"]*?")(.*)', movie, re.S)
+                if m:
+                    movie = "%s%s" % (m.group(1), m.group(3))
                 tempTitle = client.parseDOM(movie, 'div', attrs={'class': 'col_name'})[0]
                 title = py2_encode(client.replaceHTMLCodes(tempTitle)).replace('<small>(sorozat)</small>', '').strip()
                 isSorozat = "(sorozat)" in tempTitle
@@ -148,18 +162,13 @@ class navigator:
                     infoRows = client.parseDOM(infoDiv, 'div', attrs={'class': 'row'})
                 except:
                     infoRows = None
-                try:
-                    year = "(%s)" % re.sub('<.*>', '', py2_encode(client.replaceHTMLCodes(infoRows[0]))).strip()
-                except:
-                    year = ""
-                try:
-                    duration = int(re.sub('<.*>', '', py2_encode(client.replaceHTMLCodes(infoRows[1]))).strip().replace(' perc',''))*60
-                except:
-                    duration = 0
-                try:
-                    linkcount = " | [COLOR limegreen]%s link[/COLOR]" % re.sub('<.*>', '', py2_encode(client.replaceHTMLCodes(infoRows[2]))).strip().replace('db', '')
-                except:
-                    linkcount = ""
+                year = getInfoData(infoRows, "Év:", "([0-9]{4})", 1, "")
+                if year:
+                    year = "(%s)" % year
+                duration = int(getInfoData(infoRows, "Játékidő:", "([0-9]+) perc", 1, "0"))
+                linkcount = getInfoData(infoRows, "Megtekintő linkek:", "([0-9]+)db", 1, "")
+                if linkcount:
+                    linkcount = " | [COLOR limegreen]%s link[/COLOR]" % linkcount
                 action='series' if isSorozat else 'movie'
                 self.addDirectoryItem('%s %s%s%s' % (title, year, sorozatLabel, linkcount), '%s&url=%s' % (action, url), thumb, 'DefaultMovies.png' if isSorozat else 'DefaultTVShows.png', meta={'title': title, 'duration': duration, 'fanart': thumb})
             pager = client.parseDOM(url_content, 'select', attrs={'name': 'page'})[0]
@@ -175,7 +184,7 @@ class navigator:
         url_content = client.request('%s%s' %(base_url, url), cookie=self.getSiteCookies())
         container = client.parseDOM(url_content, 'div', attrs={'class': 'container'})[0]
         temp = client.parseDOM(container, 'h3')[0]
-        title = py2_encode(client.replaceHTMLCodes(client.parseDOM(temp, 'a')[0])).strip()        
+        title = py2_encode(client.replaceHTMLCodes(client.parseDOM(temp, 'a')[0])).strip()
         temp = client.parseDOM(container, 'div', attrs={'class': 'col-sm-8'})[0]
         plot = self.getInfo(temp, 'Leírás')
         duration = int(self.getInfo(temp, 'Játékidő:').replace(' perc', ''))*60
