@@ -1,4 +1,7 @@
-﻿[B]1.0.45[/B]
+﻿[B]1.0.46[/B]
+- Forrás változás követése
+
+[B]1.0.45[/B]
 - Forrás változás követése
 
 [B]1.0.44[/B]

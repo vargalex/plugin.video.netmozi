@@ -226,7 +226,9 @@ class navigator:
             xbmcgui.Dialog().ok('NetMozi', 'Lista lekérés sikertelen. A hozzáféréshez regisztráció szükséges.')
             xbmcplugin.setResolvedUrl(int(sys.argv[1]), False, xbmcgui.ListItem())
         else:
-            movieURL = 'https:%s' % client.parseDOM(url_content, 'a', attrs={'class': 'details_links_btn'}, ret='href')[0]
+            movieURL = client.parseDOM(url_content, 'a', attrs={'class': 'details_links_btn'}, ret='href')[0]
+            if movieURL.startswith("//"):
+                movieURL = "https:%s" % movieURL
             container = client.parseDOM(url_content, 'div', attrs={'class': 'container'})[0]
             temp = client.parseDOM(container, 'h3')[0]
             title = py2_encode(client.replaceHTMLCodes(client.parseDOM(temp, 'a')[0])).strip()
