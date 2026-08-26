@@ -40,6 +40,8 @@ order = params.get('order')
 
 url = params.get('url')
 
+linkid = params.get('linkid')
+
 search = params.get('search')
 
 serie = params.get('serie')
@@ -60,7 +62,7 @@ elif action == 'movie':
     navigator.navigator().getMovie(url)
 
 elif action == 'playmovie':
-    navigator.navigator().playmovie(url, subtitled)
+    navigator.navigator().playmovie(url, subtitled, linkid)
 
 elif action == 'search':
     navigator.navigator().getSearches()

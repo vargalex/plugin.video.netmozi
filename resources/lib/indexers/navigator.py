@@ -263,14 +263,44 @@ class navigator:
                     valid = ''
                     if 'red_mark.png' in cols[1]:
                         valid = '| [COLOR red]Érvénytelen[/COLOR]'
-                    mURL = urlparse.urlsplit(movieURL)
-                    url=urlparse.urljoin('%s://%s' % (mURL.scheme, mURL.netloc),py2_encode(client.parseDOM(cols[3], 'a', attrs={'class': 'btn btn-outline-primary btn-sm action-btn'}, ret='href')[-1]))
+                    linkHref=py2_encode(client.parseDOM(cols[3], 'a', attrs={'class': 'btn btn-outline-primary btn-sm action-btn'}, ret='href')[-1])
+                    linkId=re.search(r'/links/open/([0-9]+)', linkHref)
+                    if linkId:
+                        playUrl = url
+                        playLinkId = linkId.group(1)
+                    else:
+                        mURL = urlparse.urlsplit(movieURL)
+                        playUrl = urlparse.urljoin('%s://%s' % (mURL.scheme, mURL.netloc), linkHref)
+                        playLinkId = ''
                     quality=py2_encode(cols[4].strip())
                     site=py2_encode(cols[5].strip())
-                    self.addDirectoryItem('%s | [B]%s[/B] | [COLOR limegreen]%s[/COLOR] | [COLOR blue]%s[/COLOR] %s' % (format(sourceCnt, '02'), site, nyelv, quality, valid), 'playmovie&url=%s&subtitled=%s' % (url, 'true' if nyelv == 'Felirat' else 'false'), thumb, 'DefaultMovies.png', isFolder=False, meta={'title': title + serieInfo, 'plot': plot, 'duration': duration, 'fanart': thumb})
+                    self.addDirectoryItem('%s | [B]%s[/B] | [COLOR limegreen]%s[/COLOR] | [COLOR blue]%s[/COLOR] %s' % (format(sourceCnt, '02'), site, nyelv, quality, valid), 'playmovie&url=%s&linkid=%s&subtitled=%s' % (playUrl, playLinkId, 'true' if nyelv == 'Felirat' else 'false'), thumb, 'DefaultMovies.png', isFolder=False, meta={'title': title + serieInfo, 'plot': plot, 'duration': duration, 'fanart': thumb})
         self.endDirectory(type="movies")
 
-    def playmovie(self, url, subtitled):
+    def getLinkURL(self, url, linkid):
+        url_content = client.request('%s%s' % (base_url, url), cookie=self.getSiteCookies())
+        if not url_content:
+            xbmcgui.Dialog().ok('NetMozi', 'Az oldal nem elérhető!')
+            return None
+        if "regeljbe.png" in url_content:
+            xbmcgui.Dialog().ok('NetMozi', 'Lejátszás sikertelen. A hozzáféréshez regisztráció szükséges.')
+            return None
+        href = client.parseDOM(url_content, 'a', attrs={'class': 'details_links_btn'}, ret='href')
+        if not href:
+            xbmcgui.Dialog().ok('NetMozi', 'Törölt tartalom!')
+            return None
+        href = href[0]
+        if href.startswith("//"):
+            href = "https:%s" % href
+        parts = urlparse.urlsplit(href)
+        return urlparse.urlunsplit((parts.scheme, parts.netloc, '/links/open/%s' % linkid, parts.query, ''))
+
+    def playmovie(self, url, subtitled, linkid=None):
+        if linkid:
+            url = self.getLinkURL(url, linkid)
+            if not url:
+                xbmcplugin.setResolvedUrl(syshandle, False, xbmcgui.ListItem())
+                return
         xbmc.log('NetMozi: Try to play from URL: %s' % url, xbmc.LOGINFO)
         final_url = client.request(url, cookie=self.getSiteCookies(), output="geturl", error=True)
         if final_url:
