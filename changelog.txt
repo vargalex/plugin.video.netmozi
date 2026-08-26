@@ -1,4 +1,7 @@
-﻿[B]1.0.47[/B]
+﻿[B]1.0.48[/B]
+- Megnézett filmek/epizódok jelölése a listákban (nem csak a forrásoknál)
+
+[B]1.0.47[/B]
 - Lejátszási URL stabilizálása (megnézett/folytatás állapot megmarad)
 
 [B]1.0.46[/B]

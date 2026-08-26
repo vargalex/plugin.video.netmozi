@@ -81,3 +81,6 @@ elif action == 'deletesearchhistory':
 
 elif action == 'clearcache':
     navigator.navigator().clearCache()
+
+elif action == 'clearwatched':
+    navigator.navigator().clearWatched()

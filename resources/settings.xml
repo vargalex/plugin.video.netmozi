@@ -1,9 +1,15 @@
 ﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <settings>
+    <category label="Általános">
+        <setting label="Felirat letöltésének kísérlete" type="bool" id="downloadsubtitles" default="True"/>
+        <setting label="Megnézett állapot" type="lsep"/>
+        <setting label="Teljes film/epizód jelölése (nem csak az adott forrás)" type="bool" id="markwatched" default="True"/>
+        <setting id="clearwatched" type="action" label="[B][COLOR red]A kiegészítő megnézett-nyilvántartásának törlése[/COLOR][/B]" option="close" action="RunPlugin(plugin://plugin.video.netmozi/?action=clearwatched)"></setting>
+        <setting label="Karbantartás" type="lsep"/>
+        <setting id="clearcache" type="action" label="[B][COLOR red]Gyorsítótár törlése[/COLOR][/B]" option="close" action="RunPlugin(plugin://plugin.video.netmozi/?action=clearcache)"></setting>
+    </category>
     <category label="Bejelentkezés">
         <setting label="Felhasználónév:" type="text" id="username" default=""/>
         <setting label="Jelszó:" type="text" id="password" option="hidden" default=""/>
-        <setting label="Felirat letöltésének kísérlete" type="bool" id="downloadsubtitles" default="True"/>
-        <setting id="clearcache" type="action" label="[B][COLOR red]Gyorsítótár törlése[/COLOR][/B]" option="close" action="RunPlugin(plugin://plugin.video.netmozi/?action=clearcache)"></setting>
     </category>
 </settings>

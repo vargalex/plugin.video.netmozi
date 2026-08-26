@@ -19,7 +19,7 @@
 '''
 import os,sys,re,xbmc,xbmcgui,xbmcplugin,xbmcaddon, locale, base64, random, string, json
 import resolveurl
-from resources.lib.modules import client, control, cache
+from resources.lib.modules import client, control, cache, watched
 from resources.lib.modules.utils import py2_encode, py2_decode, safeopen
 
 if sys.version_info[0] == 3:
@@ -57,8 +57,10 @@ class navigator:
         self.username = xbmcaddon.Addon().getSetting('username')
         self.password = xbmcaddon.Addon().getSetting('password')
         self.downloadsubtitles = xbmcaddon.Addon().getSettingBool('downloadsubtitles')
+        self.markwatched = xbmcaddon.Addon().getSettingBool('markwatched')
         self.base_path = py2_decode(control.transPath(control.addonInfo('profile')))
         self.searchFileName = os.path.join(self.base_path, "search.history")
+        self.watched = watched.load() if self.markwatched else {}
         self.visitorId = cache.get(self.generate_visitorId, 24)
         self.fingerprint = cache.get(self.generate_fingerprint, 24)
 
@@ -170,7 +172,10 @@ class navigator:
                 if linkcount:
                     linkcount = " | [COLOR limegreen]%s link[/COLOR]" % linkcount
                 action='series' if isSorozat else 'movie'
-                self.addDirectoryItem('%s %s%s%s' % (title, year, sorozatLabel, linkcount), '%s&url=%s' % (action, url), thumb, 'DefaultMovies.png' if isSorozat else 'DefaultTVShows.png', meta={'title': title, 'duration': duration, 'fanart': thumb})
+                meta = {'title': title, 'duration': duration, 'fanart': thumb}
+                if not isSorozat and url in self.watched:
+                    meta['playcount'] = 1
+                self.addDirectoryItem('%s %s%s%s' % (title, year, sorozatLabel, linkcount), '%s&url=%s' % (action, url), thumb, 'DefaultMovies.png' if isSorozat else 'DefaultTVShows.png', meta=meta)
             pager = client.parseDOM(url_content, 'select', attrs={'name': 'page'})[0]
             options = client.parseDOM(pager, 'option', ret='value')
             if (int(options[-1]) > int(page)):
@@ -209,7 +214,11 @@ class navigator:
         episodes = client.parseDOM(url_content, 'ul', attrs={'id': 'seasonUl%s' % serie})
         episodes = client.parseDOM(episodes, 'a')
         for episode in episodes:
-            self.addDirectoryItem('%s. rész' % py2_encode(episode), 'movie&url=%s/s%s/e%s' % (url, serie, episode), thumb, 'DefaultTVShows.png', meta={'title': '%s - %s. évad %s. rész' % (title, serie, py2_encode(episode)), 'plot': plot, 'duration': duration, 'fanart': thumb})
+            episodeUrl = '%s/s%s/e%s' % (url, serie, episode)
+            meta = {'title': '%s - %s. évad %s. rész' % (title, serie, py2_encode(episode)), 'plot': plot, 'duration': duration, 'fanart': thumb}
+            if episodeUrl in self.watched:
+                meta['playcount'] = 1
+            self.addDirectoryItem('%s. rész' % py2_encode(episode), 'movie&url=%s' % episodeUrl, thumb, 'DefaultTVShows.png', meta=meta)
         self.endDirectory(type="movies")
 
     def getMovie(self, url):
@@ -249,6 +258,7 @@ class navigator:
             if table:
                 rows = client.parseDOM(table, 'tr')
                 sourceCnt = 0
+                titleWatched = url in self.watched
                 for row in rows:
                     sourceCnt+=1
                     cols = client.parseDOM(row, 'td')
@@ -274,7 +284,10 @@ class navigator:
                         playLinkId = ''
                     quality=py2_encode(cols[4].strip())
                     site=py2_encode(cols[5].strip())
-                    self.addDirectoryItem('%s | [B]%s[/B] | [COLOR limegreen]%s[/COLOR] | [COLOR blue]%s[/COLOR] %s' % (format(sourceCnt, '02'), site, nyelv, quality, valid), 'playmovie&url=%s&linkid=%s&subtitled=%s' % (playUrl, playLinkId, 'true' if nyelv == 'Felirat' else 'false'), thumb, 'DefaultMovies.png', isFolder=False, meta={'title': title + serieInfo, 'plot': plot, 'duration': duration, 'fanart': thumb})
+                    meta = {'title': title + serieInfo, 'plot': plot, 'duration': duration, 'fanart': thumb}
+                    if titleWatched:
+                        meta['playcount'] = 1
+                    self.addDirectoryItem('%s | [B]%s[/B] | [COLOR limegreen]%s[/COLOR] | [COLOR blue]%s[/COLOR] %s' % (format(sourceCnt, '02'), site, nyelv, quality, valid), 'playmovie&url=%s&linkid=%s&subtitled=%s' % (playUrl, playLinkId, 'true' if nyelv == 'Felirat' else 'false'), thumb, 'DefaultMovies.png', isFolder=False, meta=meta)
         self.endDirectory(type="movies")
 
     def getLinkURL(self, url, linkid):
@@ -296,6 +309,7 @@ class navigator:
         return urlparse.urlunsplit((parts.scheme, parts.netloc, '/links/open/%s' % linkid, parts.query, ''))
 
     def playmovie(self, url, subtitled, linkid=None):
+        titlePath = url if (linkid and self.markwatched) else None
         if linkid:
             url = self.getLinkURL(url, linkid)
             if not url:
@@ -393,6 +407,8 @@ class navigator:
                 else:
                     xbmc.log("NetMozi: ResolveURL did not find any subtitles", xbmc.LOGINFO)
             xbmc.log('NetMozi: playing URL: %s' % direct_url, xbmc.LOGINFO)
+            if titlePath:
+                watched.setPlaying(titlePath)
             xbmcplugin.setResolvedUrl(syshandle, True, listitem=play_item)
         else:
             xbmc.log('NetMozi: ResolveURL could not resolve url: %s' % final_url, xbmc.LOGINFO)
@@ -450,3 +466,6 @@ class navigator:
 
     def clearCache(self):
         cache.clear()
+
+    def clearWatched(self):
+        watched.clear()
