@@ -18,7 +18,6 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 '''
 import os,sys,re,xbmc,xbmcgui,xbmcplugin,xbmcaddon, locale, base64, random, string, json
-import resolveurl
 from resources.lib.modules import client, control, cache, watched
 from resources.lib.modules.utils import py2_encode, py2_decode, safeopen
 
@@ -343,6 +342,7 @@ class navigator:
                     newURL = urlparse.urljoin(final_url, match.group(1))
                     final_url = client.request(newURL, output="geturl")
         xbmc.log('NetMozi: final URL: %s' % final_url, xbmc.LOGINFO)
+        import resolveurl
         hmf = resolveurl.HostedMediaFile(final_url, subs=self.downloadsubtitles)
         subtitles = None
         if hmf:
