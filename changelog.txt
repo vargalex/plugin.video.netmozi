@@ -1,4 +1,7 @@
-﻿[B]1.0.48[/B]
+﻿[B]1.0.49[/B]
+- CloudFlare miatt módosítások bevezetése az ssl kapcsolathoz
+
+[B]1.0.48[/B]
 - Megnézett filmek/epizódok jelölése a listákban (nem csak a forrásoknál)
 
 [B]1.0.47[/B]

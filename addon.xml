@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<addon id="plugin.video.netmozi" name="NetMozi" version="1.0.48" provider-name="vargalex">
+<addon id="plugin.video.netmozi" name="NetMozi" version="1.0.49" provider-name="vargalex">
 	<requires>
 		<import addon="script.module.resolveurl" version="5.1.00" />
 		<import addon="script.module.inputstreamhelper" version="0.4.3"/>
@@ -13,7 +13,7 @@
 		<description lang="en">Nézd meg a filmeket, sorozatokat a http://www.netmozi.com oldalról!</description>
 		<language>hu</language>
 		<platform>all</platform>
-		<news>- Megnézett filmek/epizódok jelölése a listákban (nem csak a forrásoknál)
+		<news>- CloudFlare miatt módosítások bevezetése az ssl kapcsolathoz
 		</news>
 		<assets>
 			<icon>icon.png</icon>
