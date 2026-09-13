@@ -17,29 +17,42 @@ else:
 def request(url, close=True, error=False, proxy=None, post=None, headers=None, mobile=False, safe=False, referer=None, cookie=None, output='', timeout='30'):
     try:
         handlers = []
+
+        # Az SSL kontextust elore keszitjuk el, hogy minden aghoz (a cookie-shoz is) ez jusson:
+        # ha ket HTTPSHandler kerul a lancba, a build_opener az elsot hasznalja, es akkor a
+        # cookie-s kereseknel visszajonne az alapertelmezett (blokkolt) kontextus.
+        ssl_context = None
+        try:
+            if sys.version_info < (2, 7, 9): raise Exception()
+            import ssl; ssl_context = ssl.create_default_context()
+            ssl_context.check_hostname = False
+            ssl_context.verify_mode = ssl.CERT_NONE
+            # A Cloudflare a TLS ujjlenyomat (JA3/JA4) alapjan is szur. A Python alapbol
+            # elkuldi a session_ticket (0x0023) extension-t, amit a bongeszok TLS 1.3 alatt
+            # nem - ettol lesz a keres "botszeru", es jon a 403 + "Just a moment..." challenge.
+            # Enelkul a keres atmegy. (ALPN-t szandekosan NEM allitunk: attol ujra 403 jon.)
+            ssl_context.options |= getattr(ssl, 'OP_NO_TICKET', 0)
+        except:
+            ssl_context = None
+
+        if ssl_context == None:
+            https_handler = urllib2.HTTPSHandler()
+        else:
+            https_handler = urllib2.HTTPSHandler(context=ssl_context)
+
         if not proxy == None:
             handlers += [urllib2.ProxyHandler({'http':'%s' % (proxy)}), urllib2.HTTPHandler]
-            opener = urllib2.build_opener(*handlers)
-            opener = urllib2.install_opener(opener)
         if output == 'cookie' or output == 'extended' or not close == True:
             if sys.version_info[0] == 3:
                 import http.cookiejar as cookielib
             else:
                 import cookielib
             cookies = cookielib.LWPCookieJar()
-            handlers += [urllib2.HTTPHandler(), urllib2.HTTPSHandler(), urllib2.HTTPCookieProcessor(cookies)]
-            opener = urllib2.build_opener(*handlers)
-            opener = urllib2.install_opener(opener)
-        try:
-            if sys.version_info < (2, 7, 9): raise Exception()
-            import ssl; ssl_context = ssl.create_default_context()
-            ssl_context.check_hostname = False
-            ssl_context.verify_mode = ssl.CERT_NONE
-            handlers += [urllib2.HTTPSHandler(context=ssl_context)]
-            opener = urllib2.build_opener(*handlers)
-            opener = urllib2.install_opener(opener)
-        except:
-            pass
+            handlers += [urllib2.HTTPHandler(), https_handler, urllib2.HTTPCookieProcessor(cookies)]
+        else:
+            handlers += [https_handler]
+        opener = urllib2.build_opener(*handlers)
+        opener = urllib2.install_opener(opener)
 
         try: headers.update(headers)
         except: headers = {}
