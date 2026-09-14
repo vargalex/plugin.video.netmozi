@@ -31,7 +31,14 @@ def request(url, close=True, error=False, proxy=None, post=None, headers=None, m
             # elkuldi a session_ticket (0x0023) extension-t, amit a bongeszok TLS 1.3 alatt
             # nem - ettol lesz a keres "botszeru", es jon a 403 + "Just a moment..." challenge.
             # Enelkul a keres atmegy. (ALPN-t szandekosan NEM allitunk: attol ujra 403 jon.)
-            ssl_context.options |= getattr(ssl, 'OP_NO_TICKET', 0)
+            #
+            # Windows-on a beepitett SSL stack mas modon kezeli a
+            # session ticketeket, es a OP_NO_TICKET beallitas ott megzavarja a TLS
+            # handshake-et (a NetMozi oldal nem tolt be). Ezert csak akkor alkalmazzuk,
+            # ha NEM Windows-on futunk.
+            import platform
+            if platform.system() != 'Windows':
+                ssl_context.options |= getattr(ssl, 'OP_NO_TICKET', 0)
         except:
             ssl_context = None
 

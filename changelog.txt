@@ -1,4 +1,7 @@
-﻿[B]1.0.49[/B]
+﻿[B]1.0.50[/B]
+- Windows bugfix
+
+[B]1.0.49[/B]
 - CloudFlare miatt módosítások bevezetése az ssl kapcsolathoz
 
 [B]1.0.48[/B]
