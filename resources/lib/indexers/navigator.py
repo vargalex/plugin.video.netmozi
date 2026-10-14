@@ -32,6 +32,7 @@ sysaddon = sys.argv[0] ; syshandle = int(sys.argv[1])
 addonFanart = xbmcaddon.Addon().getAddonInfo('fanart')
 
 base_url = 'https://netmozi.com/'
+loadLinks_url = base_url + "details/loadLinks/%s%s"
 #track_url = '%s/visitortracker/track' % base_url
 
 class navigator:
@@ -195,7 +196,7 @@ class navigator:
         temp = client.parseDOM(container, 'div', attrs={'class': 'col-sm-4'})[0]
         thumb = 'https:'+client.parseDOM(temp, 'img', ret='src')[0]
         series = client.parseDOM(url_content, 'ul', attrs={'id': 'seasonUl'})
-        series = client.parseDOM(series, 'a')
+        series = client.parseDOM(series, 'a', ret="data-season")
         for serie in series:
             self.addDirectoryItem('%s. évad' % py2_encode(serie), 'episodes&url=%s&serie=%s' % (url, serie), thumb, 'DefaultTVShows.png', meta={'title': '%s - %s. évad' % (title, py2_encode(serie)), 'plot': plot, 'duration': duration, 'fanart': thumb})
         self.endDirectory(type="movies")
@@ -211,7 +212,7 @@ class navigator:
         temp = client.parseDOM(container, 'div', attrs={'class': 'col-sm-4'})[0]
         thumb = 'https:'+client.parseDOM(temp, 'img', ret='src')[0]
         episodes = client.parseDOM(url_content, 'ul', attrs={'id': 'seasonUl%s' % serie})
-        episodes = client.parseDOM(episodes, 'a')
+        episodes = client.parseDOM(episodes, 'a', ret="data-episode")
         for episode in episodes:
             episodeUrl = '%s/s%s/e%s' % (url, serie, episode)
             meta = {'title': '%s - %s. évad %s. rész' % (title, serie, py2_encode(episode)), 'plot': plot, 'duration': duration, 'fanart': thumb}
@@ -219,6 +220,22 @@ class navigator:
                 meta['playcount'] = 1
             self.addDirectoryItem('%s. rész' % py2_encode(episode), 'movie&url=%s' % episodeUrl, thumb, 'DefaultTVShows.png', meta=meta)
         self.endDirectory(type="movies")
+
+    def getMovieURL(self, content):
+        movieURL = client.parseDOM(content, 'a', attrs={'class': 'details_links_btn'}, ret='href')
+        if not movieURL:
+            movieID = client.parseDOM(content, 'div', attrs={'data-link-loader': "*"}, ret='data-movie-id')
+            if movieID:
+                movieID = movieID[0]
+                token = client.parseDOM(content, 'div', attrs={'data-link-loader': "*"}, ret='data-token')[0]
+                csrf = client.parseDOM(content, 'div', attrs={'data-link-loader': "*"}, ret='data-csrf')[0]
+                fURL = loadLinks_url % (movieID, csrf)
+                content = client.request(loadLinks_url % (movieID, csrf), post="token=%s"  % token, cookie="%s;" % (self.getSiteCookies()))
+                if content:
+                    data = json.loads(content)
+                    if data["success"] == 1:
+                        movieURL = client.parseDOM(data["html"], 'a', attrs={'class': 'details_links_btn'}, ret='href')
+        return movieURL
 
     def getMovie(self, url):
         # try:
@@ -234,7 +251,14 @@ class navigator:
             xbmcgui.Dialog().ok('NetMozi', 'Lista lekérés sikertelen. A hozzáféréshez regisztráció szükséges.')
             xbmcplugin.setResolvedUrl(int(sys.argv[1]), False, xbmcgui.ListItem())
         else:
-            movieURL = client.parseDOM(url_content, 'a', attrs={'class': 'details_links_btn'}, ret='href')[0]
+            movieURL = self.getMovieURL(url_content)
+            if movieURL:
+                movieURL = movieURL[0]
+            else:
+                xbmcgui.Dialog().ok('NetMozi', 'Lista lekérés sikertelen.')
+                xbmcplugin.setResolvedUrl(int(sys.argv[1]), False, xbmcgui.ListItem())
+                return
+
             if movieURL.startswith("//"):
                 movieURL = "https:%s" % movieURL
             container = client.parseDOM(url_content, 'div', attrs={'class': 'container'})[0]
@@ -297,7 +321,7 @@ class navigator:
         if "regeljbe.png" in url_content:
             xbmcgui.Dialog().ok('NetMozi', 'Lejátszás sikertelen. A hozzáféréshez regisztráció szükséges.')
             return None
-        href = client.parseDOM(url_content, 'a', attrs={'class': 'details_links_btn'}, ret='href')
+        href = self.getMovieURL(url_content)
         if not href:
             xbmcgui.Dialog().ok('NetMozi', 'Törölt tartalom!')
             return None
