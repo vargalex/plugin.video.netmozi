@@ -1,4 +1,7 @@
-﻿[B]1.0.50[/B]
+﻿[B]1.0.51[/B]
+- Forrás változás követése (dinamikus linkbetöltés, évad/rész lista)
+
+[B]1.0.50[/B]
 - Windows bugfix
 
 [B]1.0.49[/B]

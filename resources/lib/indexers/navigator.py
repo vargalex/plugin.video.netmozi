@@ -194,8 +194,12 @@ class navigator:
         duration = int(self.getInfo(temp, 'Játékidő:').replace(' perc', ''))*60
         temp = client.parseDOM(container, 'div', attrs={'class': 'col-sm-4'})[0]
         thumb = 'https:'+client.parseDOM(temp, 'img', ret='src')[0]
-        series = client.parseDOM(url_content, 'ul', attrs={'id': 'seasonUl'})
-        series = client.parseDOM(series, 'a')
+        seriesUl = client.parseDOM(url_content, 'ul', attrs={'id': 'seasonUl'})
+        seriesUl = seriesUl[0] if seriesUl else ''
+        series = []
+        for serie in re.findall(r'<a[^>]*data-season="([0-9]+)"', seriesUl):
+            if serie not in series:
+                series.append(serie)
         for serie in series:
             self.addDirectoryItem('%s. évad' % py2_encode(serie), 'episodes&url=%s&serie=%s' % (url, serie), thumb, 'DefaultTVShows.png', meta={'title': '%s - %s. évad' % (title, py2_encode(serie)), 'plot': plot, 'duration': duration, 'fanart': thumb})
         self.endDirectory(type="movies")
@@ -210,8 +214,12 @@ class navigator:
         duration = int(self.getInfo(temp, 'Játékidő:').replace(' perc', ''))*60
         temp = client.parseDOM(container, 'div', attrs={'class': 'col-sm-4'})[0]
         thumb = 'https:'+client.parseDOM(temp, 'img', ret='src')[0]
-        episodes = client.parseDOM(url_content, 'ul', attrs={'id': 'seasonUl%s' % serie})
-        episodes = client.parseDOM(episodes, 'a')
+        episodesUl = client.parseDOM(url_content, 'ul', attrs={'id': 'seasonUl%s' % serie})
+        episodesUl = episodesUl[0] if episodesUl else ''
+        episodes = []
+        for episode in re.findall(r'<a[^>]*data-episode="([0-9]+)"', episodesUl):
+            if episode not in episodes:
+                episodes.append(episode)
         for episode in episodes:
             episodeUrl = '%s/s%s/e%s' % (url, serie, episode)
             meta = {'title': '%s - %s. évad %s. rész' % (title, serie, py2_encode(episode)), 'plot': plot, 'duration': duration, 'fanart': thumb}
@@ -219,6 +227,42 @@ class navigator:
                 meta['playcount'] = 1
             self.addDirectoryItem('%s. rész' % py2_encode(episode), 'movie&url=%s' % episodeUrl, thumb, 'DefaultTVShows.png', meta=meta)
         self.endDirectory(type="movies")
+
+    def getLinksPageUrl(self, url_content):
+        '''A megtekintő linkek oldalának (mindjart.megnezed.com/links/...) URL-jét adja vissza.
+        A NetMozi ezt a linket már nem a HTML-be ágyazva, hanem AJAX hívással
+        (/details/loadLinks/<id>) tölti be, ezért ha nincs az oldalon, onnan kérjük le.'''
+        if not url_content:
+            return None
+        links = client.parseDOM(url_content, 'a', attrs={'class': 'details_links_btn'}, ret='href')
+        if links:
+            return links[0]
+        loader = re.search(r'<div[^>]*data-link-loader[^>]*>', url_content, re.S | re.I)
+        if not loader:
+            return None
+        tag = loader.group(0)
+        movieId = re.search(r'data-movie-id="([0-9]+)"', tag)
+        token = re.search(r'data-token="([^"]+)"', tag)
+        csrf = re.search(r'data-csrf="([^"]+)"', tag)
+        if not (movieId and token and csrf):
+            return None
+        headers = {
+            'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+        loadUrl = '%sdetails/loadLinks/%s%s' % (base_url, movieId.group(1), csrf.group(1))
+        response = client.request(loadUrl, post='token=%s' % quote_plus(token.group(1)), cookie="%s;" % (self.getSiteCookies()), headers=headers)
+        if not response:
+            return None
+        try:
+            data = json.loads(response)
+        except:
+            return None
+        if data.get('captcha') == 1 or data.get('success') != 1:
+            return None
+        links = client.parseDOM(data.get('html', ''), 'a', attrs={'class': 'details_links_btn'}, ret='href')
+        return links[0] if links else None
 
     def getMovie(self, url):
         # try:
@@ -234,7 +278,11 @@ class navigator:
             xbmcgui.Dialog().ok('NetMozi', 'Lista lekérés sikertelen. A hozzáféréshez regisztráció szükséges.')
             xbmcplugin.setResolvedUrl(int(sys.argv[1]), False, xbmcgui.ListItem())
         else:
-            movieURL = client.parseDOM(url_content, 'a', attrs={'class': 'details_links_btn'}, ret='href')[0]
+            movieURL = self.getLinksPageUrl(url_content)
+            if not movieURL:
+                xbmcgui.Dialog().ok('NetMozi', 'A megtekintő linkek betöltése sikertelen! Próbáld újra később, vagy jelentkezz be.')
+                self.endDirectory(type="movies")
+                return
             if movieURL.startswith("//"):
                 movieURL = "https:%s" % movieURL
             container = client.parseDOM(url_content, 'div', attrs={'class': 'container'})[0]
@@ -251,6 +299,10 @@ class navigator:
             else:
                 serieInfo=''
             url_content = client.request(movieURL)
+            if not url_content:
+                xbmcgui.Dialog().ok('NetMozi', 'A megtekintő linkek oldala nem érhető el! Próbáld újra később.')
+                self.endDirectory(type="movies")
+                return
             card = client.parseDOM(url_content, 'div', attrs={'class': 'card .+?'})[0]
             tableDiv = client.parseDOM(card, 'div', attrs={'class': 'table-responsive'})[0]
             table = client.parseDOM(tableDiv, 'table', attrs={'class': 'table'})
@@ -297,11 +349,10 @@ class navigator:
         if "regeljbe.png" in url_content:
             xbmcgui.Dialog().ok('NetMozi', 'Lejátszás sikertelen. A hozzáféréshez regisztráció szükséges.')
             return None
-        href = client.parseDOM(url_content, 'a', attrs={'class': 'details_links_btn'}, ret='href')
+        href = self.getLinksPageUrl(url_content)
         if not href:
             xbmcgui.Dialog().ok('NetMozi', 'Törölt tartalom!')
             return None
-        href = href[0]
         if href.startswith("//"):
             href = "https:%s" % href
         parts = urlparse.urlsplit(href)
