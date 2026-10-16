@@ -18,7 +18,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 '''
 import os,sys,re,xbmc,xbmcgui,xbmcplugin,xbmcaddon, locale, base64, random, string, json
-from resources.lib.modules import client, control, cache, watched
+from resources.lib.modules import client, control, cache, watched, linkpayload
 from resources.lib.modules.utils import py2_encode, py2_decode, safeopen
 
 if sys.version_info[0] == 3:
@@ -33,7 +33,32 @@ addonFanart = xbmcaddon.Addon().getAddonInfo('fanart')
 
 base_url = 'https://netmozi.com/'
 loadLinks_url = base_url + "details/loadLinks/%s%s"
+xhr_headers = {'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json', 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'}
 #track_url = '%s/visitortracker/track' % base_url
+
+class CaptchaDialog(xbmcgui.WindowXMLDialog):
+    """Sajat XML dialog (resources/skins/Default/720p/DialogCaptcha.xml): a captcha kep es ket gomb.
+    A "Kod megadasa" gomb bezarja a dialogot (self.enter = True), a billentyuzetet a hivo nyitja."""
+    IMAGE, ENTER, CANCEL = 20, 200, 201
+
+    def __init__(self, *args, **kwargs):
+        self.imgPath = kwargs['imgPath']
+        self.enter = False
+
+    def onInit(self):
+        self.getControl(self.IMAGE).setImage(self.imgPath, False)
+        self.setFocusId(self.ENTER)
+
+    def onClick(self, controlId):
+        if controlId == self.ENTER:
+            self.enter = True
+            self.close()
+        elif controlId == self.CANCEL:
+            self.close()
+
+    def onAction(self, action):
+        if action.getId() in (9, 10, 92):  # ACTION_PARENT_DIR, ACTION_PREVIOUS_MENU, ACTION_NAV_BACK
+            self.close()
 
 class navigator:
 
@@ -137,6 +162,16 @@ class navigator:
             search = ''
         url_content = client.request('%s?page=%s&type=%s&order=%s&search=%s' % (base_url, page, tipus, order, quote_plus(search)), cookie=self.getSiteCookies())
         movies = client.parseDOM(url_content, 'div', attrs={'class': 'col-12.*?'})
+        if not movies:
+            resultsUrl = client.parseDOM(url_content, 'div', attrs={'id': 'indexListingAccess'}, ret='data-results-url')
+            if resultsUrl:
+                resultsUrl = resultsUrl[0]
+                resultsToken = client.parseDOM(url_content, 'div', attrs={'id': 'indexListingAccess'}, ret='data-results-token')[0]
+                content = client.request("%s%s" % (base_url, resultsUrl), post="token=%s" % resultsToken, cookie=self.getSiteCookies())
+                data = json.loads(content   )
+                if data["success"]:
+                    movies = client.parseDOM(data["html"]["classic"], 'div', attrs={'class': 'col-12.*?'})
+                    url_content = data["html"]["classic"]
         if len(movies)>0:
             for movie in movies:
                 m = re.search(r'(.*?)(title="[^"]*?")(.*)', movie, re.S)
@@ -230,12 +265,84 @@ class navigator:
                 token = client.parseDOM(content, 'div', attrs={'data-link-loader': "*"}, ret='data-token')[0]
                 csrf = client.parseDOM(content, 'div', attrs={'data-link-loader': "*"}, ret='data-csrf')[0]
                 fURL = loadLinks_url % (movieID, csrf)
-                content = client.request(loadLinks_url % (movieID, csrf), post="token=%s"  % token, cookie="%s;" % (self.getSiteCookies()))
+                content = client.request(loadLinks_url % (movieID, csrf), post="token=%s"  % token, cookie="%s;" % (self.getSiteCookies()), headers=dict(xhr_headers))
                 if content:
                     data = json.loads(content)
                     if data["success"] == 1:
-                        movieURL = client.parseDOM(data["html"], 'a', attrs={'class': 'details_links_btn'}, ret='href')
+                        if data.get("linkPayload"):
+                            movieURL = linkpayload.unpack(data["linkPayload"]["value"], token)
+                        else:
+                            movieURL = client.parseDOM(data["html"], 'a', attrs={'class': 'details_links_btn'}, ret='href')
         return movieURL
+
+    def getLinkPage(self, url):
+        """A mindjart.megnezed.com oldal lekérése. A rate limit (HTTP 429) captcha oldalát megoldatja a
+        felhasználóval, majd újra kéri. Visszatérés: (tartalom, végső URL, payload scope, route-ok) vagy None."""
+        for attempt in range(3):
+            page = client.request(url, output='extended', error=True)
+            if not page:
+                return None
+            content, _, _, cookie, final_url = page
+            if sys.version_info[0] == 3 and isinstance(content, bytes):
+                content = content.decode('utf-8', 'replace')
+            if 'data-link-captcha' not in content:
+                break
+            if self.solveLinkCaptcha(content, url, cookie) is None:
+                return None
+        else:
+            return None
+        scope, routes = None, []
+        payload = re.search(r'<script[^>]*data-link-payload[^>]*data-link-context="([^"]+)"[^>]*>(.*?)</script>', content, re.S)
+        if payload:
+            data = json.loads(payload.group(2))
+            scope = data['scope']
+            routes = linkpayload.unpack(data['value'], payload.group(1))
+        return (content, final_url, scope, routes)
+
+    def solveLinkCaptcha(self, content, url, cookie):
+        """A captcha form kiolvasása, a kép letöltése és megjelenítése, a megoldás beküldése.
+        True: elfogadva, False: hibás kód, None: megszakítva vagy ismeretlen oldal."""
+        form = re.search(r'<form[^>]*data-link-captcha[^>]*data-endpoint="([^"]+)"', content)
+        image = re.search(r'<img[^>]*src="([^"]+)"[^>]*data-link-captcha-image', content)
+        fields = dict(re.findall(r'<input[^>]*name="([^"]+)"[^>]*value="([^"]*)"', content))
+        if not form or not image or 'csrf_token' not in fields:
+            xbmc.log('NetMozi: ismeretlen captcha oldal: %s' % url, xbmc.LOGWARNING)
+            return None
+        img = client.request(urlparse.urljoin(url, client.replaceHTMLCodes(image.group(1))), cookie=cookie, referer=url, output='extended', error=True)
+        if not img:
+            return None
+        control.makeFile(control.dataPath)
+        imgPath = os.path.join(control.dataPath, 'captcha.png')
+        with open(imgPath, 'wb') as f:
+            f.write(img[0])
+        answer = self.askCaptcha(imgPath)
+        if not answer:
+            return None
+        post = 'captcha=%s&csrf_token=%s&captcha_context=%s&token=%s' % (quote_plus(answer), quote_plus(fields['csrf_token']), quote_plus(fields.get('captcha_context', '')), quote_plus(fields.get('token', '')))
+        result = client.request(urlparse.urljoin(url, form.group(1)), post=post, cookie=cookie, referer=url, headers=dict(xhr_headers))
+        try:
+            result = json.loads(result)
+        except:
+            result = {}
+        if result.get('success') == 1:
+            return True
+        xbmcgui.Dialog().notification('NetMozi', result.get('error') or 'Hibás ellenőrző kód', xbmcgui.NOTIFICATION_ERROR)
+        return False
+
+    def askCaptcha(self, imgPath):
+        """Kep a sajat dialogban, majd a Kodi billentyuzet. Ha a billentyuzetet megse-vel zarjak,
+        a kep ujra megjelenik; a dialog Megse gombja vagy a Back szakitja meg."""
+        while True:
+            dialog = CaptchaDialog('DialogCaptcha.xml', control.addonPath, 'Default', '720p', imgPath=imgPath)
+            dialog.doModal()
+            enter = dialog.enter
+            del dialog
+            if not enter:
+                return None
+            keyboard = xbmc.Keyboard('', 'Írd be a képen látható 4 karaktert')
+            keyboard.doModal()
+            if keyboard.isConfirmed() and keyboard.getText().strip():
+                return keyboard.getText().strip().upper()
 
     def getMovie(self, url):
         # try:
@@ -274,7 +381,12 @@ class navigator:
                 serieInfo=' - %s' % py2_encode(serieInfo[0])
             else:
                 serieInfo=''
-            url_content = client.request(movieURL)
+            page = self.getLinkPage(movieURL)
+            if not page:
+                xbmcgui.Dialog().ok('NetMozi', 'Lista lekérés sikertelen.')
+                xbmcplugin.setResolvedUrl(int(sys.argv[1]), False, xbmcgui.ListItem())
+                return
+            url_content, _, scope, routes = page
             card = client.parseDOM(url_content, 'div', attrs={'class': 'card .+?'})[0]
             tableDiv = client.parseDOM(card, 'div', attrs={'class': 'table-responsive'})[0]
             table = client.parseDOM(tableDiv, 'table', attrs={'class': 'table'})
@@ -296,7 +408,11 @@ class navigator:
                     valid = ''
                     if 'red_mark.png' in cols[1]:
                         valid = '| [COLOR red]Érvénytelen[/COLOR]'
-                    linkHref=py2_encode(client.parseDOM(cols[3], 'a', attrs={'class': 'btn btn-outline-primary btn-sm action-btn'}, ret='href')[-1])
+                    route = re.search(r'data-link-route="%s:([0-9]+)"' % scope, cols[3]) if scope else None
+                    if route:
+                        linkHref = routes[int(route.group(1))]
+                    else:
+                        linkHref=py2_encode(client.parseDOM(cols[3], 'a', attrs={'class': 'btn btn-outline-primary btn-sm action-btn'}, ret='href')[-1])
                     linkId=re.search(r'/links/open/([0-9]+)', linkHref)
                     if linkId:
                         playUrl = url
@@ -340,9 +456,15 @@ class navigator:
                 return
         xbmc.log('NetMozi: Try to play from URL: %s' % url, xbmc.LOGINFO)
         final_url = client.request(url, cookie=self.getSiteCookies(), output="geturl", error=True)
+        if final_url and "mindjart.megnezed" in final_url:
+            # 429 eseten nincs redirect, a captcha megoldasa utan a getLinkPage adja az uj vegso URL-t
+            page = self.getLinkPage(final_url)
+            if not page:
+                xbmcplugin.setResolvedUrl(syshandle, False, xbmcgui.ListItem())
+                return
+            url_content, final_url = page[0], page[1]
         if final_url:
             if "mindjart.megnezed" in final_url:
-                url_content = client.request(final_url)
                 matches = re.search(r'^(.*)function counter(.*)var link([^=]*)=([^"]*)"([^"]*)";(.*)$', url_content, re.S)
                 if matches:
                     final_url = base64.b64decode(matches.group(5)).decode('utf-8')

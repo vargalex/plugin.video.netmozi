@@ -99,10 +99,16 @@ def request(url, close=True, error=False, proxy=None, post=None, headers=None, m
             for c in cookies: result.append('%s=%s' % (c.name, c.value))
             result = "; ".join(result)
         elif output == 'response':
+            # Korai return: a fuggveny vegi decode() tuple-on elszallna (Py3), es None jonne vissza.
             if safe == True:
-                result = (str(response.code), response.read(224 * 1024))
+                result = response.read(224 * 1024)
             else:
-                result = (str(response.code), response.read())
+                result = response.read()
+            if close == True:
+                response.close()
+            if (sys.version_info[0] == 3 and not isinstance(result, str)):
+                result = result.decode('utf-8')
+            return (str(response.code), result)
         elif output == 'chunk':
             try: content = int(response.headers['Content-Length'])
             except: content = (2049 * 1024)
@@ -117,7 +123,7 @@ def request(url, close=True, error=False, proxy=None, post=None, headers=None, m
             cookie = "; ".join(cookie)
             content = response.headers
             result = response.read()
-            return (result, headers, content, cookie)
+            return (result, headers, content, cookie, response.geturl())
         elif output == 'geturl':
             result = response.geturl()
         elif output == 'headers':
