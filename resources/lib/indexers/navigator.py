@@ -36,6 +36,16 @@ loadLinks_url = base_url + "details/loadLinks/%s%s"
 xhr_headers = {'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json', 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'}
 #track_url = '%s/visitortracker/track' % base_url
 
+def mergeCookies(*cookieStrings):
+    """"a=1; b=2" alaku suti-sztringek osszefesulese, a kesobbi felulirja a korabbit."""
+    merged = {}
+    for cs in cookieStrings:
+        for item in (cs or '').split(';'):
+            if '=' in item:
+                name, value = item.strip().split('=', 1)
+                merged[name] = value
+    return '; '.join('%s=%s' % kv for kv in merged.items())
+
 class CaptchaDialog(xbmcgui.WindowXMLDialog):
     """Sajat XML dialog (resources/skins/Default/720p/DialogCaptcha.xml): a captcha kep es ket gomb.
     A "Kod megadasa" gomb bezarja a dialogot (self.enter = True), a billentyuzetet a hivo nyitja."""
@@ -160,7 +170,7 @@ class navigator:
 
         if search == None:
             search = ''
-        url_content = client.request('%s?page=%s&type=%s&order=%s&search=%s' % (base_url, page, tipus, order, quote_plus(search)), cookie=self.getSiteCookies())
+        url_content = linkpayload.resolveContent(client.request('%s?page=%s&type=%s&order=%s&search=%s' % (base_url, page, tipus, order, quote_plus(search)), cookie=self.getSiteCookies()))
         movies = client.parseDOM(url_content, 'div', attrs={'class': 'col-12.*?'})
         if not movies:
             resultsUrl = client.parseDOM(url_content, 'div', attrs={'id': 'indexListingAccess'}, ret='data-results-url')
@@ -170,8 +180,8 @@ class navigator:
                 content = client.request("%s%s" % (base_url, resultsUrl), post="token=%s" % resultsToken, cookie=self.getSiteCookies())
                 data = json.loads(content   )
                 if data["success"]:
-                    movies = client.parseDOM(data["html"]["classic"], 'div', attrs={'class': 'col-12.*?'})
-                    url_content = data["html"]["classic"]
+                    url_content = linkpayload.resolveContent(data["html"]["classic"])
+                    movies = client.parseDOM(url_content, 'div', attrs={'class': 'col-12.*?'})
         if len(movies)>0:
             for movie in movies:
                 m = re.search(r'(.*?)(title="[^"]*?")(.*)', movie, re.S)
@@ -221,7 +231,7 @@ class navigator:
             xbmcplugin.setResolvedUrl(int(sys.argv[1]), False, xbmcgui.ListItem())
 
     def getSeries(self, url):
-        url_content = client.request('%s%s' %(base_url, url), cookie=self.getSiteCookies())
+        url_content = linkpayload.resolveContent(client.request('%s%s' %(base_url, url), cookie=self.getSiteCookies()))
         container = client.parseDOM(url_content, 'div', attrs={'class': 'container'})[0]
         temp = client.parseDOM(container, 'h3')[0]
         title = py2_encode(client.replaceHTMLCodes(client.parseDOM(temp, 'a')[0])).strip()
@@ -229,7 +239,7 @@ class navigator:
         plot = self.getInfo(temp, 'Leírás')
         duration = int(self.getInfo(temp, 'Játékidő:').replace(' perc', ''))*60
         temp = client.parseDOM(container, 'div', attrs={'class': 'col-sm-4'})[0]
-        thumb = 'https:'+client.parseDOM(temp, 'img', ret='src')[0]
+        thumb = urlparse.urljoin(base_url, client.parseDOM(temp, 'img', ret='src')[0])
         series = client.parseDOM(url_content, 'ul', attrs={'id': 'seasonUl'})
         series = client.parseDOM(series, 'a', ret="data-season")
         for serie in series:
@@ -237,7 +247,7 @@ class navigator:
         self.endDirectory(type="movies")
 
     def getEpisodes(self, url, serie):
-        url_content = client.request('%s%s' %(base_url, url), cookie=self.getSiteCookies())
+        url_content = linkpayload.resolveContent(client.request('%s%s' %(base_url, url), cookie=self.getSiteCookies()))
         container = client.parseDOM(url_content, 'div', attrs={'class': 'container'})[0]
         temp = client.parseDOM(container, 'h3')[0]
         title = py2_encode(client.replaceHTMLCodes(client.parseDOM(temp, 'a')[0])).strip()        
@@ -245,7 +255,7 @@ class navigator:
         plot = self.getInfo(temp, 'Leírás')
         duration = int(self.getInfo(temp, 'Játékidő:').replace(' perc', ''))*60
         temp = client.parseDOM(container, 'div', attrs={'class': 'col-sm-4'})[0]
-        thumb = 'https:'+client.parseDOM(temp, 'img', ret='src')[0]
+        thumb = urlparse.urljoin(base_url, client.parseDOM(temp, 'img', ret='src')[0])
         episodes = client.parseDOM(url_content, 'ul', attrs={'id': 'seasonUl%s' % serie})
         episodes = client.parseDOM(episodes, 'a', ret="data-episode")
         for episode in episodes:
@@ -286,6 +296,7 @@ class navigator:
             if sys.version_info[0] == 3 and isinstance(content, bytes):
                 content = content.decode('utf-8', 'replace')
             if 'data-link-captcha' not in content:
+                content = linkpayload.resolveContent(content)
                 break
             if self.solveLinkCaptcha(content, url, cookie) is None:
                 return None
@@ -353,7 +364,7 @@ class navigator:
         #         return
         #     url_content = client.request('%s%s' %(base_url, url), cookie="%s; _vt_track=%s;" % (self.getSiteCookies(), trackingData["visitor_id"]))
         # except:
-        url_content = client.request('%s%s' %(base_url, url), cookie="%s;" % (self.getSiteCookies()))
+        url_content = linkpayload.resolveContent(client.request('%s%s' %(base_url, url), cookie="%s;" % (self.getSiteCookies())))
         if "regeljbe.png" in url_content:
             xbmcgui.Dialog().ok('NetMozi', 'Lista lekérés sikertelen. A hozzáféréshez regisztráció szükséges.')
             xbmcplugin.setResolvedUrl(int(sys.argv[1]), False, xbmcgui.ListItem())
@@ -372,7 +383,7 @@ class navigator:
             temp = client.parseDOM(container, 'h3')[0]
             title = py2_encode(client.replaceHTMLCodes(client.parseDOM(temp, 'a')[0])).strip()
             temp = client.parseDOM(container, 'div', attrs={'class': 'col-sm-4'})[0]
-            thumb = 'https:'+client.parseDOM(temp, 'img', ret='src')[0]
+            thumb = urlparse.urljoin(base_url, client.parseDOM(temp, 'img', ret='src')[0])
             temp = client.parseDOM(container, 'div', attrs={'class': 'col-sm-8'})[0]
             plot = self.getInfo(temp, 'Leírás')
             duration = int(self.getInfo(temp, 'Játékidő:').replace(' perc', ''))*60
@@ -389,14 +400,16 @@ class navigator:
             url_content, _, scope, routes = page
             card = client.parseDOM(url_content, 'div', attrs={'class': 'card .+?'})[0]
             tableDiv = client.parseDOM(card, 'div', attrs={'class': 'table-responsive'})[0]
-            table = client.parseDOM(tableDiv, 'table', attrs={'class': 'table'})
+            table = client.parseDOM(tableDiv, 'table', attrs={'class': 'table.*?'})
             if table:
-                rows = client.parseDOM(table, 'tr')
+                rows = re.findall(r'<tr([^>]*)>(.*?)</tr>', table[0], re.S)
                 sourceCnt = 0
                 titleWatched = url in self.watched
-                for row in rows:
-                    sourceCnt+=1
+                for rowAttrs, row in rows:
                     cols = client.parseDOM(row, 'td')
+                    if not cols:
+                        continue
+                    sourceCnt+=1
                     if 'hungary.gif' in cols[0]:
                         nyelv = 'Szinkron'
                     elif 'usa.gif' in cols[0]:
@@ -413,7 +426,7 @@ class navigator:
                         linkHref = routes[int(route.group(1))]
                     else:
                         linkHref=py2_encode(client.parseDOM(cols[3], 'a', attrs={'class': 'btn btn-outline-primary btn-sm action-btn'}, ret='href')[-1])
-                    linkId=re.search(r'/links/open/([0-9]+)', linkHref)
+                    linkId=re.search(r'data-link-id="([^"]+)"', rowAttrs)
                     if linkId:
                         playUrl = url
                         playLinkId = linkId.group(1)
@@ -430,7 +443,7 @@ class navigator:
         self.endDirectory(type="movies")
 
     def getLinkURL(self, url, linkid):
-        url_content = client.request('%s%s' % (base_url, url), cookie=self.getSiteCookies())
+        url_content = linkpayload.resolveContent(client.request('%s%s' % (base_url, url), cookie=self.getSiteCookies()))
         if not url_content:
             xbmcgui.Dialog().ok('NetMozi', 'Az oldal nem elérhető!')
             return None
@@ -444,8 +457,15 @@ class navigator:
         href = href[0]
         if href.startswith("//"):
             href = "https:%s" % href
-        parts = urlparse.urlsplit(href)
-        return urlparse.urlunsplit((parts.scheme, parts.netloc, '/links/open/%s' % linkid, parts.query, ''))
+        # A linkek sajat tokenje a mindjart oldal route listajabol jon, a film oldal tokenje ott nem ervenyes
+        page = self.getLinkPage(href)
+        if page and page[2]:
+            row = re.search(r'<tr[^>]*data-link-id="%s"[^>]*>(.*?)</tr>' % re.escape(linkid), page[0], re.S)
+            route = re.search(r'data-link-route="%s:([0-9]+)"' % page[2], row.group(1)) if row else None
+            if route:
+                return urlparse.urljoin(href, page[3][int(route.group(1))])
+        xbmcgui.Dialog().ok('NetMozi', 'Törölt tartalom!')
+        return None
 
     def playmovie(self, url, subtitled, linkid=None):
         titlePath = url if (linkid and self.markwatched) else None
@@ -595,14 +615,26 @@ class navigator:
         return client.request(base_url, output="cookie")
 
     def getCookiesWithLogin(self):
-        login_url = '%s/login/do' % base_url
-        login_cookies = client.request(login_url, post="username=%s&password=%s" % (quote_plus(self.username), quote_plus(self.password)), output='cookie')
-        if 'ca=' in login_cookies:
-            return login_cookies
-        else:
-            xbmcgui.Dialog().ok(u'NetMozi', u'Bejelentkez\u00E9si hiba! Érvénytelen felhasználó név/jelszó?')
+        """Bejelentkezes: a login oldal sutijei es a csrf-es form action kellenek a POST-hoz,
+        a sikert a fooldal kijelentkezes linkje igazolja."""
+        page = client.request(base_url + 'login', output='extended', error=True)
+        if not page:
+            xbmcgui.Dialog().ok(u'NetMozi', u'Bejelentkezési hiba! A login oldal nem elérhető.')
             return None
-        return
+        content, _, _, cookies, _ = page
+        if sys.version_info[0] == 3 and isinstance(content, bytes):
+            content = content.decode('utf-8', 'replace')
+        action = re.search(r'<form[^>]*action="(/login/do[^"]*)"', content)
+        login_url = urlparse.urljoin(base_url, action.group(1) if action else '/login/do')
+        result = client.request(login_url, post="username=%s&password=%s" % (quote_plus(self.username), quote_plus(self.password)), cookie=cookies, referer=base_url + 'login', output='extended', error=True)
+        if result:
+            cookies = mergeCookies(cookies, result[3])
+            home = client.request(base_url, cookie=cookies)
+            if home and 'logout' in home:
+                return cookies
+        xbmc.log('NetMozi: bejelentkezés sikertelen (login url: %s, válasz: %s)' % (login_url, 'nincs' if not result else len(result[0])), xbmc.LOGWARNING)
+        xbmcgui.Dialog().ok(u'NetMozi', u'Bejelentkez\u00E9si hiba! Érvénytelen felhasználó név/jelszó?')
+        return None
 
     def getSiteCookies(self):
         if (self.username and self.password) != '':

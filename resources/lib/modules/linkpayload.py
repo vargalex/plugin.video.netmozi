@@ -3,8 +3,10 @@
 # Python portja az oldal link-payload.v1.js dekoderenek: a details_links_btn
 # gombok href-je "#", a valodi cimet a payload hordozza, a data-link-loader
 # div data-token erteke a kulcs. Az unpack() a cimek listajat adja vissza.
+# Ugyanezzel a kodolassal jon az oldalak tartalma is (data-content-payload), amit a
+# resolveContent() fejt vissza es illeszt a helyere.
 
-import base64, json
+import base64, json, re
 
 M = 0xFFFFFFFF
 
@@ -37,3 +39,16 @@ def unpack(value, token):
     if ('%08x' % _seed(''.join(chr(b) for b in plain)))[-8:] != value['h']:
         raise ValueError('linkPayload hash mismatch')
     return json.loads(bytes(plain).decode('utf-8'))
+
+def resolveContent(html):
+    """A data-content-payload scriptek visszafejtese es a hozzajuk tartozo data-content-scope
+    placeholder csereje a visszafejtett HTML-re, igy az oldal a regi, teljes szerkezetet adja."""
+    for _ in range(3):
+        if not html or 'data-content-payload' not in html:
+            break
+        for m in re.finditer(r'<script[^>]*data-content-payload[^>]*data-content-context="([^"]+)"[^>]*>(.*?)</script>', html, re.S):
+            payload = json.loads(m.group(2))
+            decoded = ''.join(unpack(payload['value'], m.group(1)))
+            html = re.sub(r'<div[^>]*data-content-scope="%s"[^>]*>.*?</div>' % re.escape(payload['scope']), lambda _: decoded, html, count=1, flags=re.S)
+            html = html.replace(m.group(0), '', 1)
+    return html
