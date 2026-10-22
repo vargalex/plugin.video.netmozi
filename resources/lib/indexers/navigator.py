@@ -17,7 +17,7 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 '''
-import os,sys,re,xbmc,xbmcgui,xbmcplugin,xbmcaddon, locale, base64, random, string, json
+import os,sys,re,xbmc,xbmcgui,xbmcplugin,xbmcaddon, locale, base64, random, string, json, time
 from resources.lib.modules import client, control, cache, watched, linkpayload
 from resources.lib.modules.utils import py2_encode, py2_decode, safeopen
 
@@ -33,6 +33,13 @@ addonFanart = xbmcaddon.Addon().getAddonInfo('fanart')
 
 base_url = 'https://netmozi.com/'
 loadLinks_url = base_url + "details/loadLinks/%s%s"
+# A TV-kodos belepeshez a szerver tevesnek felismert User-Agentet var; a kulcsok a settings.xml tvdevice ertekei
+tv_agents = {
+    'Kodi (Smart TV)': 'Mozilla/5.0 (SMART-TV; Linux; Kodi) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36 Kodi/21.0',
+    'Samsung TV (Tizen)': 'Mozilla/5.0 (SMART-TV; LINUX; Tizen 6.0) AppleWebKit/537.36 (KHTML, like Gecko) Version/5.0 TV Safari/537.36',
+    'LG TV (webOS)': 'Mozilla/5.0 (Web0S; Linux/SmartTV) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36 WebAppManager',
+    'Android TV': 'Mozilla/5.0 (Linux; Android 11; SHIELD Android TV Build/RQ1A.210105.003; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/119.0.0.0 Mobile Safari/537.36',
+}
 xhr_headers = {'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json', 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'}
 #track_url = '%s/visitortracker/track' % base_url
 
@@ -93,6 +100,8 @@ class navigator:
         self.password = xbmcaddon.Addon().getSetting('password')
         self.downloadsubtitles = xbmcaddon.Addon().getSettingBool('downloadsubtitles')
         self.markwatched = xbmcaddon.Addon().getSettingBool('markwatched')
+        self.tvcodelogin = xbmcaddon.Addon().getSettingBool('tvcodelogin')
+        self.tvdevice = xbmcaddon.Addon().getSetting('tvdevice')
         self.base_path = py2_decode(control.transPath(control.addonInfo('profile')))
         self.searchFileName = os.path.join(self.base_path, "search.history")
         self.watched = watched.load() if self.markwatched else {}
@@ -170,7 +179,13 @@ class navigator:
 
         if search == None:
             search = ''
-        url_content = linkpayload.resolveContent(client.request('%s?page=%s&type=%s&order=%s&search=%s' % (base_url, page, tipus, order, quote_plus(search)), cookie=self.getSiteCookies()))
+        cookies = self.getSiteCookies()
+        url_content = linkpayload.resolveContent(client.request('%s?page=%s&type=%s&order=%s&search=%s' % (base_url, page, tipus, order, quote_plus(search)), cookie=cookies))
+        if self.tvcodelogin and cookies and url_content and 'logout' not in url_content:
+            # A cache-elt TV-kodos munkamenet lejart: uj belepes, majd ujra a lista
+            cookies = cache.get(self.getCookiesWithTvCode, 0)
+            if cookies:
+                url_content = linkpayload.resolveContent(client.request('%s?page=%s&type=%s&order=%s&search=%s' % (base_url, page, tipus, order, quote_plus(search)), cookie=cookies))
         movies = client.parseDOM(url_content, 'div', attrs={'class': 'col-12.*?'})
         if not movies:
             resultsUrl = client.parseDOM(url_content, 'div', attrs={'id': 'indexListingAccess'}, ret='data-results-url')
@@ -636,8 +651,73 @@ class navigator:
         xbmcgui.Dialog().ok(u'NetMozi', u'Bejelentkez\u00E9si hiba! Érvénytelen felhasználó név/jelszó?')
         return None
 
+    def getCookiesWithTvCode(self):
+        """Eszkozkodos belepes (login/tv): a plugin tevekent ker egy kodot, a felhasznalo bejelentkezve
+        a netmozi.com/login/tv oldalon jovahagyja, a plugin addig lekerdezi a login/tvPoll vegpontot."""
+        tv_agent = tv_agents.get(self.tvdevice, tv_agents['Kodi (Smart TV)'])
+        page = client.request(base_url + 'login/tv', output='extended', error=True, headers={'User-Agent': tv_agent})
+        content = page[0] if page else None
+        if sys.version_info[0] == 3 and isinstance(content, bytes):
+            content = content.decode('utf-8', 'replace')
+        csrf = re.search(r'data-tv-login data-csrf="([^"]+)"', content or '')
+        if not csrf:
+            xbmcgui.Dialog().ok(u'NetMozi', u'A TV-kódos belépés nem érhető el.')
+            return None
+        cookies = page[3]
+        headers = {'User-Agent': tv_agent, 'Accept': 'application/json', 'Content-Type': 'application/x-www-form-urlencoded'}
+        start = client.request(base_url + 'login/tvStart' + csrf.group(1), post='', cookie=cookies, referer=base_url + 'login/tv', headers=dict(headers), output='extended', error=True)
+        try:
+            data = json.loads(start[0])
+        except:
+            data = {}
+        if data.get('success') != 1:
+            xbmcgui.Dialog().ok(u'NetMozi', data.get('error') or u'A belépési kód kérése sikertelen.')
+            return None
+        cookies = mergeCookies(cookies, start[3])
+        interval = int(data.get('interval', 4))
+        expires_in = int(data.get('expires_in', 600))
+        deadline = time.time() + expires_in
+        message = u'Egy másik eszközön nyisd meg a [B]netmozi.com/login/tv[/B] oldalt, jelentkezz be, és hagyd jóvá ezt a kódot:\n[B]%s[/B]' % data['code']
+        progress = xbmcgui.DialogProgress()
+        progress.create(u'NetMozi - Belépés TV-kóddal', message)
+        status = 'cancelled'
+        while time.time() < deadline:
+            progress.update(int(100 * (deadline - time.time()) / expires_in), message)
+            for _ in range(interval * 2):
+                if progress.iscanceled():
+                    break
+                xbmc.sleep(500)
+            if progress.iscanceled():
+                status = 'cancelled'
+                break
+            poll = client.request(base_url + 'login/tvPoll' + csrf.group(1), post='', cookie=cookies, referer=base_url + 'login/tv', headers=dict(headers), output='extended', error=True)
+            try:
+                result = json.loads(poll[0])
+            except:
+                result = {}
+            status = result.get('status', 'pending')
+            if status == 'approved':
+                cookies = mergeCookies(cookies, poll[3])
+                break
+            if status in ('expired', 'limit'):
+                xbmcgui.Dialog().ok(u'NetMozi', result.get('message') or u'A belépési kód lejárt, kérj újat.')
+                break
+        progress.close()
+        if status != 'approved':
+            xbmc.log('NetMozi: TV-kódos belépés megszakadt (%s)' % status, xbmc.LOGINFO)
+            return None
+        home = client.request(base_url, cookie=cookies)
+        if home and 'logout' in home:
+            return cookies
+        home = client.request(base_url, cookie=cookies, headers={'User-Agent': tv_agent})
+        xbmc.log('NetMozi: TV-kódos belépés jóváhagyva, de a session az alap User-Agenttel nem bejelentkezett (TV User-Agenttel: %s)' % bool(home and 'logout' in home), xbmc.LOGWARNING)
+        xbmcgui.Dialog().ok(u'NetMozi', u'A jóváhagyás megtörtént, de a bejelentkezett munkamenet nem használható. Kérlek jelezd a fejlesztőnek.')
+        return None
+
     def getSiteCookies(self):
-        if (self.username and self.password) != '':
+        if self.tvcodelogin:
+            return cache.get(self.getCookiesWithTvCode, 24*365)
+        elif (self.username and self.password) != '':
             return cache.get(self.getCookiesWithLogin, 24)
         else:
             return cache.get(self.getCookiesWithoutLogin, 24*365)
