@@ -49,6 +49,8 @@ def resolveContent(html):
         for m in re.finditer(r'<script[^>]*data-content-payload[^>]*data-content-context="([^"]+)"[^>]*>(.*?)</script>', html, re.S):
             payload = json.loads(m.group(2))
             decoded = ''.join(unpack(payload['value'], m.group(1)))
+            if not isinstance(decoded, type(html)):
+                decoded = decoded.encode('utf-8')  # Python 2: a json unicode-ot ad, az oldal str
             html = re.sub(r'<div[^>]*data-content-scope="%s"[^>]*>.*?</div>' % re.escape(payload['scope']), lambda _: decoded, html, count=1, flags=re.S)
             html = html.replace(m.group(0), '', 1)
     return html

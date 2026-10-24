@@ -171,6 +171,7 @@ class navigator:
         def getInfoData(infoRows, sample, regex, retIndex, defaultValue):
             if infoRows:
                 for row in infoRows:
+                    row = py2_encode(row)  # parseDOM Python 2 alatt unicode-ot ad, a minta str
                     if sample in row:
                         m = re.search(r"%s" % regex, row)
                         if m:
@@ -195,7 +196,7 @@ class navigator:
                 content = client.request("%s%s" % (base_url, resultsUrl), post="token=%s" % resultsToken, cookie=self.getSiteCookies())
                 data = json.loads(content   )
                 if data["success"]:
-                    url_content = linkpayload.resolveContent(data["html"]["classic"])
+                    url_content = py2_encode(linkpayload.resolveContent(data["html"]["classic"]))
                     movies = client.parseDOM(url_content, 'div', attrs={'class': 'col-12.*?'})
         if len(movies)>0:
             for movie in movies:
@@ -275,7 +276,7 @@ class navigator:
         episodes = client.parseDOM(episodes, 'a', ret="data-episode")
         for episode in episodes:
             episodeUrl = '%s/s%s/e%s' % (url, serie, episode)
-            meta = {'title': '%s - %s. évad %s. rész' % (title, serie, py2_encode(episode)), 'plot': plot, 'duration': duration, 'fanart': thumb}
+            meta = {'title': '%s - %s. évad %s. rész' % (title, py2_encode(serie), py2_encode(episode)), 'plot': plot, 'duration': duration, 'fanart': thumb}
             if episodeUrl in self.watched:
                 meta['playcount'] = 1
             self.addDirectoryItem('%s. rész' % py2_encode(episode), 'movie&url=%s' % episodeUrl, thumb, 'DefaultTVShows.png', meta=meta)

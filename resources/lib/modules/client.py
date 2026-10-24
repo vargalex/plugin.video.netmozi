@@ -38,7 +38,7 @@ def request(url, close=True, error=False, proxy=None, post=None, headers=None, m
             # ha NEM Windows-on futunk.
             import platform
             if platform.system() != 'Windows':
-                ssl_context.options |= getattr(ssl, 'OP_NO_TICKET', 0)
+                ssl_context.options |= getattr(ssl, 'OP_NO_TICKET', 0x4000)  # Python 2.7-ben nincs a konstans, az OpenSSL SSL_OP_NO_TICKET erteke 0x4000
         except:
             ssl_context = None
 
