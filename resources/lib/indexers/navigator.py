@@ -40,7 +40,8 @@ tv_agents = {
     'LG TV (webOS)': 'Mozilla/5.0 (Web0S; Linux/SmartTV) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36 WebAppManager',
     'Android TV': 'Mozilla/5.0 (Linux; Android 11; SHIELD Android TV Build/RQ1A.210105.003; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/119.0.0.0 Mobile Safari/537.36',
 }
-xhr_headers = {'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json', 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'}
+# Python 2 alatt az X-Requested-With es az Accept fejlec Cloudflare 403-at valt ki, a szerver nelkuluk is JSON-t ad
+xhr_headers = {'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json', 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'} if sys.version_info[0] == 3 else {'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'}
 #track_url = '%s/visitortracker/track' % base_url
 
 def mergeCookies(*cookieStrings):
@@ -102,6 +103,7 @@ class navigator:
         self.markwatched = xbmcaddon.Addon().getSettingBool('markwatched')
         self.tvcodelogin = xbmcaddon.Addon().getSettingBool('tvcodelogin')
         self.tvdevice = xbmcaddon.Addon().getSetting('tvdevice')
+        self.linkCookie = ''  # a mindjart oldal sutijei, a /links/open utak csak ezekkel ervenyesek
         self.base_path = py2_decode(control.transPath(control.addonInfo('profile')))
         self.searchFileName = os.path.join(self.base_path, "search.history")
         self.watched = watched.load() if self.markwatched else {}
@@ -318,6 +320,9 @@ class navigator:
                 return None
         else:
             return None
+        # A /links/open utak a vv oldal munkamenetehez kotottek (PHPSESSID, c): a suti nelkul a szerver
+        # a 403-as 'nem hasznalhato' oldalt adja, a bongeszo is csak a sajat sutijeivel tudja megnyitni.
+        self.linkCookie = cookie
         scope, routes = None, []
         payload = re.search(r'<script[^>]*data-link-payload[^>]*data-link-context="([^"]+)"[^>]*>(.*?)</script>', content, re.S)
         if payload:
@@ -491,7 +496,7 @@ class navigator:
                 xbmcplugin.setResolvedUrl(syshandle, False, xbmcgui.ListItem())
                 return
         xbmc.log('NetMozi: Try to play from URL: %s' % url, xbmc.LOGINFO)
-        final_url = client.request(url, cookie=self.getSiteCookies(), output="geturl", error=True)
+        final_url = client.request(url, cookie=mergeCookies(self.getSiteCookies(), self.linkCookie), output="geturl", error=True)
         if final_url and "mindjart.megnezed" in final_url:
             # 429 eseten nincs redirect, a captcha megoldasa utan a getLinkPage adja az uj vegso URL-t
             page = self.getLinkPage(final_url)
@@ -662,10 +667,19 @@ class navigator:
             content = content.decode('utf-8', 'replace')
         csrf = re.search(r'data-tv-login data-csrf="([^"]+)"', content or '')
         if not csrf:
-            xbmcgui.Dialog().ok(u'NetMozi', u'A TV-kódos belépés nem érhető el.')
+            if not content:
+                reason = 'nincs válasz'
+            elif 'Just a moment' in content or 'cf-chl' in content:
+                reason = 'Cloudflare ellenőrző oldal (403)'
+            elif 'csak TV-r' in content:
+                reason = 'a szerver nem TV-ként ismerte fel a kérést'
+            else:
+                reason = 'ismeretlen tartalom'
+            xbmc.log('NetMozi: TV-kódos belépés nem érhető el: %s (válasz hossza: %s, User-Agent: %s)' % (reason, len(content or ''), tv_agent), xbmc.LOGWARNING)
+            xbmcgui.Dialog().ok(u'NetMozi', u'A TV-kódos belépés nem érhető el (%s).' % reason)
             return None
         cookies = page[3]
-        headers = {'User-Agent': tv_agent, 'Accept': 'application/json', 'Content-Type': 'application/x-www-form-urlencoded'}
+        headers = dict(xhr_headers, **{'User-Agent': tv_agent})
         start = client.request(base_url + 'login/tvStart' + csrf.group(1), post='', cookie=cookies, referer=base_url + 'login/tv', headers=dict(headers), output='extended', error=True)
         try:
             data = json.loads(start[0])

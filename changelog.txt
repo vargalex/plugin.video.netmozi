@@ -1,4 +1,9 @@
-﻿[B]1.0.53[/B]
+﻿[B]1.0.54[/B]
+- Forrás változás követése: v2 linkcsomag visszafejtése, a linkek megnyitása a mindjart munkamenet sütijével (403 javítás)
+- Python 2 bugfix (linkek betöltése CoreELEC 9.2-n)
+- Részletesebb hibaüzenet, ha a TV-kódos belépés nem érhető el
+
+[B]1.0.53[/B]
 - Belépés TV kóddal
 - Python 2 kompatibilitás bugfix
 
