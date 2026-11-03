@@ -1,6 +1,17 @@
 # -*- coding: utf-8 -*-
 
 import re,sys,random
+
+# A Cloudflare a TLS ujjlenyomatot (JA3) a titkositok sorrendjebol is szamolja. A Python alap
+# sorrendje botszeru, ez a Chrome TLS 1.2-es listaja (a TLS 1.3-as suite-okat az OpenSSL kulon kezeli).
+_BROWSER_CIPHERS = (
+    'ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:'
+    'ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:'
+    'ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:'
+    'ECDHE-ECDSA-AES128-SHA:ECDHE-RSA-AES128-SHA:'
+    'ECDHE-ECDSA-AES256-SHA:ECDHE-RSA-AES256-SHA:'
+    'AES128-GCM-SHA256:AES256-GCM-SHA384:AES128-SHA:AES256-SHA'
+)
 from resources.lib.modules import cache
 
 if sys.version_info[0] == 3:
@@ -39,6 +50,10 @@ def request(url, close=True, error=False, proxy=None, post=None, headers=None, m
             import platform
             if platform.system() != 'Windows':
                 ssl_context.options |= getattr(ssl, 'OP_NO_TICKET', 0x4000)  # Python 2.7-ben nincs a konstans, az OpenSSL SSL_OP_NO_TICKET erteke 0x4000
+            # Bongeszo-szeru titkosito sorrend (Sony Android TV-n az OP_NO_TICKET-tel is jott a Cloudflare 403).
+            # Kulon try: ha a regi OpenSSL nem ismeri a listat, a kontextus tobbi beallitasa megmarad.
+            try: ssl_context.set_ciphers(_BROWSER_CIPHERS)
+            except: pass
         except:
             ssl_context = None
 

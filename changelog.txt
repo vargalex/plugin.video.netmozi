@@ -1,4 +1,8 @@
-﻿[B]1.0.54[/B]
+﻿[B]1.0.55[/B]
+- Cloudflare 403 javítás: böngésző-szerű TLS titkosító sorrend (Kodi Matrix, Android TV, CoreELEC 19.5)
+- Hibaüzenet és naplósor a Python/OpenSSL verzióval, ha a főoldal vagy a lista nem jön le
+
+[B]1.0.54[/B]
 - Forrás változás követése: v2 linkcsomag visszafejtése, a linkek megnyitása a mindjart munkamenet sütijével (403 javítás)
 - Python 2 bugfix (linkek betöltése CoreELEC 9.2-n)
 - Részletesebb hibaüzenet, ha a TV-kódos belépés nem érhető el

@@ -44,6 +44,24 @@ tv_agents = {
 xhr_headers = {'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json', 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'} if sys.version_info[0] == 3 else {'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'}
 #track_url = '%s/visitortracker/track' % base_url
 
+def envInfo():
+    """Python es OpenSSL verzio a naplohoz: a Cloudflare TLS ujjlenyomat-szurese ezektol fugg."""
+    try:
+        import ssl; openssl = ssl.OPENSSL_VERSION
+    except:
+        openssl = 'nincs ssl modul'
+    return 'Python %s, %s' % (sys.version.split()[0], openssl)
+
+def responseReason(content):
+    """Miert nem hasznalhato a szerver valasza (a naploba es a hibauzenetbe)."""
+    if not content:
+        return 'nincs válasz'
+    if 'Just a moment' in content or 'cf-chl' in content:
+        return 'Cloudflare ellenőrző oldal (403)'
+    if 'csak TV-r' in content:
+        return 'a szerver nem TV-ként ismerte fel a kérést'
+    return 'ismeretlen tartalom'
+
 def mergeCookies(*cookieStrings):
     """"a=1; b=2" alaku suti-sztringek osszefesulese, a kesobbi felulirja a korabbit."""
     merged = {}
@@ -137,8 +155,16 @@ class navigator:
         self.endDirectory()
 
     def getOrderTypes(self, tipus):
-        url_content = client.request(base_url, cookie=self.getSiteCookies())
-        select = client.parseDOM(url_content, 'select', attrs={'id': 'order_by_select'})[0]
+        url_content = client.request(base_url, cookie=self.getSiteCookies(), error=True)
+        select = client.parseDOM(url_content, 'select', attrs={'id': 'order_by_select'})
+        if not select:
+            # Hibas valasznal (pl. Cloudflare 403) a parseDOM ures sztringet ad, a [0] IndexError-t dobna
+            reason = responseReason(url_content)
+            xbmc.log('NetMozi: a főoldal nem használható: %s (válasz hossza: %s, %s)' % (reason, len(url_content or ''), envInfo()), xbmc.LOGWARNING)
+            xbmcgui.Dialog().ok('NetMozi', 'Az oldal nem elérhető (%s).' % reason)
+            self.endDirectory()
+            return
+        select = select[0]
         matches=re.findall(r'<option value="([0-9])"(.*)>(.*)</option>', select)
         for match in matches:
                 self.addDirectoryItem(match[2], 'movies&page=1&type=%s&order=%s&search=' % (tipus, match[0]), '', 'DefaultFolder.png')
@@ -200,6 +226,8 @@ class navigator:
                 if data["success"]:
                     url_content = py2_encode(linkpayload.resolveContent(data["html"]["classic"]))
                     movies = client.parseDOM(url_content, 'div', attrs={'class': 'col-12.*?'})
+        if not movies:
+            xbmc.log('NetMozi: üres lista: %s (válasz hossza: %s, %s)' % (responseReason(url_content), len(url_content or ''), envInfo()), xbmc.LOGWARNING)
         if len(movies)>0:
             for movie in movies:
                 m = re.search(r'(.*?)(title="[^"]*?")(.*)', movie, re.S)
@@ -667,15 +695,8 @@ class navigator:
             content = content.decode('utf-8', 'replace')
         csrf = re.search(r'data-tv-login data-csrf="([^"]+)"', content or '')
         if not csrf:
-            if not content:
-                reason = 'nincs válasz'
-            elif 'Just a moment' in content or 'cf-chl' in content:
-                reason = 'Cloudflare ellenőrző oldal (403)'
-            elif 'csak TV-r' in content:
-                reason = 'a szerver nem TV-ként ismerte fel a kérést'
-            else:
-                reason = 'ismeretlen tartalom'
-            xbmc.log('NetMozi: TV-kódos belépés nem érhető el: %s (válasz hossza: %s, User-Agent: %s)' % (reason, len(content or ''), tv_agent), xbmc.LOGWARNING)
+            reason = responseReason(content)
+            xbmc.log('NetMozi: TV-kódos belépés nem érhető el: %s (válasz hossza: %s, User-Agent: %s, %s)' % (reason, len(content or ''), tv_agent, envInfo()), xbmc.LOGWARNING)
             xbmcgui.Dialog().ok(u'NetMozi', u'A TV-kódos belépés nem érhető el (%s).' % reason)
             return None
         cookies = page[3]
