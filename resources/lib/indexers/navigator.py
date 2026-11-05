@@ -329,7 +329,18 @@ class navigator:
                             movieURL = linkpayload.unpack(data["linkPayload"]["value"], token)
                         else:
                             movieURL = client.parseDOM(data["html"], 'a', attrs={'class': 'details_links_btn'}, ret='href')
-        return movieURL
+                    else:
+                        xbmc.log('NetMozi: a loadLinks válasza nem sikeres: %s' % content[:300], xbmc.LOGWARNING)
+                else:
+                    xbmc.log('NetMozi: a loadLinks kérés sikertelen (%s)' % envInfo(), xbmc.LOGWARNING)
+            else:
+                xbmc.log('NetMozi: nincs forrás gomb és linkbetöltő az oldalon: %s (válasz hossza: %s, %s)' % (responseReason(content), len(content or ''), envInfo()), xbmc.LOGWARNING)
+        # A linkcsomag tobb linket is adhat (tamogatoi fioknal pl. /details/videa/ es diablotorrent is jott),
+        # a forraslista csak a mindjart linkoldalrol olvashato, ezert azt kell valasztani, nem az elsot.
+        mindjart = [u for u in movieURL if '/links/vv/' in u] if movieURL else []
+        if movieURL and not mindjart:
+            xbmc.log('NetMozi: nincs mindjart link a forráslinkek között: %s' % [u.split('?')[0] for u in movieURL], xbmc.LOGWARNING)
+        return mindjart or movieURL
 
     def getLinkPage(self, url):
         """A mindjart.megnezed.com oldal lekérése. A rate limit (HTTP 429) captcha oldalát megoldatja a
@@ -337,6 +348,7 @@ class navigator:
         for attempt in range(3):
             page = client.request(url, output='extended', error=True)
             if not page:
+                xbmc.log('NetMozi: a linkoldal nem érhető el: %s (%s)' % (url, envInfo()), xbmc.LOGWARNING)
                 return None
             content, _, _, cookie, final_url = page
             if sys.version_info[0] == 3 and isinstance(content, bytes):
@@ -347,6 +359,7 @@ class navigator:
             if self.solveLinkCaptcha(content, url, cookie) is None:
                 return None
         else:
+            xbmc.log('NetMozi: a linkoldal captcha után sem jött meg: %s' % url, xbmc.LOGWARNING)
             return None
         # A /links/open utak a vv oldal munkamenetehez kotottek (PHPSESSID, c): a suti nelkul a szerver
         # a 403-as 'nem hasznalhato' oldalt adja, a bongeszo is csak a sajat sutijeivel tudja megnyitni.

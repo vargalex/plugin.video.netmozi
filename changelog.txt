@@ -1,4 +1,8 @@
-﻿[B]1.0.55[/B]
+﻿[B]1.0.56[/B]
+- A forráslista a mindjart linket választja, ha a linkcsomag több linket ad (pl. videa, torrent link is van benne)
+- Naplózás a forráslista hibáinál: a sikertelen kérés oka (pl. névfeloldás, SSL), hiányzó forráslink vagy linkbetöltő, nem elérhető linkoldal
+
+[B]1.0.55[/B]
 - Cloudflare 403 javítás: böngésző-szerű TLS titkosító sorrend (Kodi Matrix, Android TV, CoreELEC 19.5)
 - Hibaüzenet és naplósor a Python/OpenSSL verzióval, ha a főoldal vagy a lista nem jön le
 

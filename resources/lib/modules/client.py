@@ -157,6 +157,12 @@ def request(url, close=True, error=False, proxy=None, post=None, headers=None, m
         else:
             return result
     except:
+        # A hiba tipusa a naploba (pl. URLError nevfeloldas, SSLError), kulonben csak csendes None jon vissza
+        e = sys.exc_info()[1]
+        try:
+            import xbmc
+            xbmc.log('NetMozi: kérés sikertelen: %s (%s: %s)' % (url, type(e).__name__, e), xbmc.LOGWARNING)
+        except: pass
         return
 
 

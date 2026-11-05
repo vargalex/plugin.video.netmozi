@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<addon id="plugin.video.netmozi" name="NetMozi" version="1.0.55" provider-name="vargalex">
+<addon id="plugin.video.netmozi" name="NetMozi" version="1.0.56" provider-name="vargalex">
 	<requires>
 		<import addon="script.module.resolveurl" version="5.1.00" />
 		<import addon="script.module.inputstreamhelper" version="0.4.3"/>
@@ -13,7 +13,7 @@
 		<description lang="en">Nézd meg a filmeket, sorozatokat a http://www.netmozi.com oldalról!</description>
 		<language>hu</language>
 		<platform>all</platform>
-		<news>- Cloudflare 403 javítás (Kodi Matrix / Android TV), részletesebb hibaüzenetek
+		<news>- A forráslista a mindjart linket választja, ha a linkcsomag több linket ad; naplózás a forráslista hibáinál
 		</news>
 		<assets>
 			<icon>icon.png</icon>
