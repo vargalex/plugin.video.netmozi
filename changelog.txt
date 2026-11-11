@@ -1,4 +1,8 @@
-﻿[B]1.0.56[/B]
+﻿[B]1.0.57[/B]
+- Forrás változás követése: a loadLinks válasz és a mindjart linkoldal linkcsomag nélkül jön (sima hivatkozások), a gomb több tagú osztállyal; évad/epizód mezők küldése
+- A loadLinks hibás válasza a naplóba kerül
+
+[B]1.0.56[/B]
 - A forráslista a mindjart linket választja, ha a linkcsomag több linket ad (pl. videa, torrent link is van benne)
 - Naplózás a forráslista hibáinál: a sikertelen kérés oka (pl. névfeloldás, SSL), hiányzó forráslink vagy linkbetöltő, nem elérhető linkoldal
 

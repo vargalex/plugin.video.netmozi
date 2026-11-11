@@ -313,22 +313,35 @@ class navigator:
         self.endDirectory(type="movies")
 
     def getMovieURL(self, content):
-        movieURL = client.parseDOM(content, 'a', attrs={'class': 'details_links_btn'}, ret='href')
+        # A gomb osztalya tobb tagu ('details_links_btn link-external-action'), a parseDOM pontos egyezest keres
+        movieURL = client.parseDOM(content, 'a', attrs={'class': 'details_links_btn.*?'}, ret='href')
         if not movieURL:
             movieID = client.parseDOM(content, 'div', attrs={'data-link-loader': "*"}, ret='data-movie-id')
             if movieID:
                 movieID = movieID[0]
                 token = client.parseDOM(content, 'div', attrs={'data-link-loader': "*"}, ret='data-token')[0]
                 csrf = client.parseDOM(content, 'div', attrs={'data-link-loader': "*"}, ret='data-csrf')[0]
-                fURL = loadLinks_url % (movieID, csrf)
-                content = client.request(loadLinks_url % (movieID, csrf), post="token=%s"  % token, cookie="%s;" % (self.getSiteCookies()), headers=dict(xhr_headers))
+                # A links.js a token mellett a loader data-season/data-episode ertekeit is kuldi (2025-11 ota)
+                post = 'token=%s' % quote_plus(token)
+                for field in ('season', 'episode'):
+                    value = client.parseDOM(content, 'div', attrs={'data-link-loader': "*"}, ret='data-' + field)
+                    if value:
+                        post += '&%s=%s' % (field, quote_plus(value[0]))
+                content = client.request(loadLinks_url % (movieID, csrf), post=post, cookie="%s;" % (self.getSiteCookies()), headers=dict(xhr_headers), error=True)
                 if content:
-                    data = json.loads(content)
+                    try:
+                        data = json.loads(content)
+                    except ValueError:
+                        # HTTP hiba eseten (error=True) a valasz torzse jon, pl. HTML hibaoldal
+                        data = {"success": 0}
                     if data["success"] == 1:
                         if data.get("linkPayload"):
                             movieURL = linkpayload.unpack(data["linkPayload"]["value"], token)
                         else:
-                            movieURL = client.parseDOM(data["html"], 'a', attrs={'class': 'details_links_btn'}, ret='href')
+                            # plain-links fioknal nincs linkcsomag (linkPayload: null), a link a HTML gombjaban van
+                            movieURL = client.parseDOM(data["html"], 'a', attrs={'class': 'details_links_btn.*?'}, ret='href')
+                            if not movieURL:
+                                xbmc.log('NetMozi: a loadLinks válaszában nincs forrás gomb: %s' % data["html"][:300], xbmc.LOGWARNING)
                     else:
                         xbmc.log('NetMozi: a loadLinks válasza nem sikeres: %s' % content[:300], xbmc.LOGWARNING)
                 else:
@@ -521,11 +534,17 @@ class navigator:
             href = "https:%s" % href
         # A linkek sajat tokenje a mindjart oldal route listajabol jon, a film oldal tokenje ott nem ervenyes
         page = self.getLinkPage(href)
-        if page and page[2]:
+        if page:
             row = re.search(r'<tr[^>]*data-link-id="%s"[^>]*>(.*?)</tr>' % re.escape(linkid), page[0], re.S)
-            route = re.search(r'data-link-route="%s:([0-9]+)"' % page[2], row.group(1)) if row else None
+            route = re.search(r'data-link-route="%s:([0-9]+)"' % page[2], row.group(1)) if (row and page[2]) else None
             if route:
                 return urlparse.urljoin(href, page[3][int(route.group(1))])
+            # plain-links munkamenetnel a mindjart oldalon nincs linkcsomag, a sor gombja sima /links/open href
+            # (ugyanaz a visszaeses, mint a getMovie listazasaban)
+            links = client.parseDOM(row.group(1), 'a', attrs={'class': 'btn btn-outline-primary btn-sm action-btn'}, ret='href') if row else []
+            if links:
+                return urlparse.urljoin(href, links[-1])
+            xbmc.log('NetMozi: a link nincs a linkoldalon (linkid: %s, sor: %s, scope: %s)' % (linkid, bool(row), page[2]), xbmc.LOGWARNING)
         xbmcgui.Dialog().ok('NetMozi', 'Törölt tartalom!')
         return None
 
